@@ -16,3 +16,29 @@ from typing import Callable
 
 _NO_SEARCH_MARK = "没有发起过一次搜索"
 
+
+class SearchUnavailable(RuntimeError):
+    """这条通路没有真正联网搜索：中转站常见的做法是静默丢弃 tools 参数，
+    请求照常 200 返回，模型那头却看不到工具，只会凭记忆编或者直接拒答。"""
+
+
+@dataclass
+class ResearchResult:
+    """联网检索的结果：蒸馏正文 + 这次实际引用到的网页。"""
+    text: str
+    sources: list[dict]          # [{"url": ..., "title": ...}]
+
+
+def _source_collector() -> tuple[list[dict], Callable[..., None]]:
+    """返回 (结果列表, add(url, title))，按 url 去重。"""
+    out: list[dict] = []
+    seen: set[str] = set()
+
+    def add(url, title=""):
+        url = (url or "").strip()
+        if url and url not in seen:
+            seen.add(url)
+            out.append({"url": url, "title": (title or "").strip()})
+
+    return out, add
+
