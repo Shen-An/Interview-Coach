@@ -42,3 +42,23 @@ def _source_collector() -> tuple[list[dict], Callable[..., None]]:
 
     return out, add
 
+
+def _harvest_anthropic_sources(blocks, add) -> bool:
+    """捞搜索结果，返回「这一轮模型有没有真的发起搜索」。
+    块的形状随 SDK/网关有出入，一律软处理。"""
+    searched = False
+    for b in blocks or []:
+        btype = getattr(b, "type", "")
+        if btype == "web_search_tool_result":
+            searched = True
+            content = getattr(b, "content", None)
+            if isinstance(content, list):      # 出错时 content 是单个错误对象，不是列表
+                for r in content:
+                    add(getattr(r, "url", ""), getattr(r, "title", ""))
+        elif btype == "server_tool_use" and getattr(b, "name", "") == "web_search":
+            searched = True                    # 发起了搜索但结果块被网关删了，也算搜过
+        elif btype == "text":
+            for c in getattr(b, "citations", None) or []:
+                add(getattr(c, "url", ""), getattr(c, "title", ""))
+    return searched
+
