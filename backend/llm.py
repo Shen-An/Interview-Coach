@@ -62,3 +62,22 @@ def _harvest_anthropic_sources(blocks, add) -> bool:
                 add(getattr(c, "url", ""), getattr(c, "title", ""))
     return searched
 
+
+def _harvest_openai_sources(resp, add) -> bool:
+    """捞 url_citation 标注，返回 output 里有没有出现搜索调用。"""
+    searched = False
+    for item in getattr(resp, "output", None) or []:
+        if "search" in getattr(item, "type", ""):
+            searched = True
+        for c in getattr(item, "content", None) or []:
+            for a in getattr(c, "annotations", None) or []:
+                add(getattr(a, "url", ""), getattr(a, "title", ""))
+    return searched
+
+
+@dataclass
+class LLMConfig:
+    provider: str
+    model: str
+
+    @staticmethod
