@@ -104,3 +104,32 @@ class LLMClient:
     # 收紧成有界值——流式下 read 是「相邻数据块之间」的间隔上限，长回答不受影响；
     # 挂了能在分钟级报错，交给 _rotate 换下一家。
     @staticmethod
+    def _http_limits() -> dict:
+        try:
+            import httpx2 as hx  # 新版 anthropic/openai SDK 依赖 httpx2
+        except ImportError:
+            import httpx as hx
+        return {
+            "timeout": hx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0),
+            "max_retries": 1,
+        }
+
+    def _get_anthropic(self):
+        if self._anthropic is None:
+            import anthropic
+            base_url = (os.getenv("ANTHROPIC_BASE_URL") or "").strip().rstrip("/")
+            # SDK 自己会拼 /v1/messages，中转站给的地址若带了 /v1 就剥掉，避免出现 /v1/v1
+            if base_url.endswith("/v1"):
+                base_url = base_url[:-3].rstrip("/")
+            self._anthropic = anthropic.Anthropic(base_url=base_url or None, **self._http_limits())
+        return self._anthropic
+
+    def _get_openai(self):
+        if self._openai is None:
+            from openai import OpenAI
+            base_url = os.getenv("OPENAI_BASE_URL") or None
+            self._openai = OpenAI(base_url=base_url, **self._http_limits())
+        return self._openai
+
+    # ---- 双提供商调度：首选 = 设置里选的那家，另一家配了 key 就是备用 ----
+    @staticmethod
