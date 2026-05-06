@@ -81,3 +81,26 @@ class LLMConfig:
     model: str
 
     @staticmethod
+    def load() -> "LLMConfig":
+        provider = os.getenv("LLM_PROVIDER", "anthropic").strip().lower()
+        if provider == "anthropic":
+            model = os.getenv("ANTHROPIC_MODEL", "claude-opus-5")
+        else:
+            model = os.getenv("OPENAI_MODEL", "gpt-5")
+        return LLMConfig(provider=provider, model=model)
+
+
+class LLMClient:
+    """messages: [{"role": "user"|"assistant", "content": str}, ...]"""
+
+    def __init__(self) -> None:
+        self.cfg = LLMConfig.load()
+        self._anthropic = None
+        self._openai = None
+        self._force_chat_completions = False  # 网关不支持 Responses API 时置位
+
+    # ---- provider clients (lazy) ----
+    # SDK 默认 timeout=600s 且重试 2 次：中转站死掉/半开时一次调用能挂半小时，前端就是无尽转圈。
+    # 收紧成有界值——流式下 read 是「相邻数据块之间」的间隔上限，长回答不受影响；
+    # 挂了能在分钟级报错，交给 _rotate 换下一家。
+    @staticmethod
