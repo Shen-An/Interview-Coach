@@ -133,3 +133,25 @@ class LLMClient:
 
     # ---- 双提供商调度：首选 = 设置里选的那家，另一家配了 key 就是备用 ----
     @staticmethod
+    def _key_of(provider: str) -> str:
+        return os.getenv("ANTHROPIC_API_KEY" if provider == "anthropic" else "OPENAI_API_KEY", "")
+
+    @staticmethod
+    def model_of(provider: str) -> str:
+        if provider == "anthropic":
+            return os.getenv("ANTHROPIC_MODEL", "claude-opus-5")
+        return os.getenv("OPENAI_MODEL", "gpt-5")
+
+    def chain(self) -> list[str]:
+        """按优先级返回配了 key 的提供商列表。"""
+        prefs = [self.cfg.provider] + [p for p in ("anthropic", "openai") if p != self.cfg.provider]
+        return [p for p in prefs if self._key_of(p)]
+
+    def ready(self) -> tuple[bool, str]:
+        ch = self.chain()
+        if not ch:
+            return False, "两家的 API Key 都还没填，请在设置里配置任意一家"
+        detail = f"{ch[0]} / {self.model_of(ch[0])}"
+        if len(ch) > 1:
+            detail += f"（备用：{ch[1]} / {self.model_of(ch[1])}）"
+        return True, detail
