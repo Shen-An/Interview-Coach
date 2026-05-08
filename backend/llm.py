@@ -155,3 +155,28 @@ class LLMClient:
         if len(ch) > 1:
             detail += f"（备用：{ch[1]} / {self.model_of(ch[1])}）"
         return True, detail
+
+    def _rotate(self, fn_map: dict, *args) -> str:
+        """依次尝试可用提供商，一家报错自动换下一家；全挂了把每家的错都抛出来。"""
+        errs = []
+        for p in self.chain() or [self.cfg.provider]:
+            try:
+                return fn_map[p](self.model_of(p), *args)
+            except Exception as e:
+                errs.append(f"{p}/{self.model_of(p)}：{e}")
+        raise RuntimeError("　→ 已自动切换备用，仍失败 → 　".join(errs) if len(errs) > 1 else errs[0])
+
+    # ---- unified chat ----
+    def chat(
+        self, system: str, messages: list[dict], max_tokens: int = 8192,
+        stop: list[str] | None = None, fast: bool = False,
+    ) -> str:
+        """stop：停止序列，用来在 API 端就掐住"模型开始自演下一轮"的开头。
+        Anthropic 与 chat/completions 支持；Responses API 没有这个参数，会被忽略。
+
+        fast：机械任务（转写纠错这类）用。推理模型默认自适应思考，顺一段话也能想 30 秒；
+        显式压低思考能降到几秒。网关不认这个参数时自动退回普通调用。"""
+        return self._rotate(
+            {"anthropic": self._chat_anthropic, "openai": self._chat_openai},
+            system, messages, max_tokens, stop, fast,
+        )
