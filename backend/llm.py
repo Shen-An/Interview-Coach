@@ -180,3 +180,26 @@ class LLMClient:
             {"anthropic": self._chat_anthropic, "openai": self._chat_openai},
             system, messages, max_tokens, stop, fast,
         )
+
+    def _chat_anthropic(
+        self, model: str, system: str, messages: list[dict], max_tokens: int,
+        stop: list[str] | None = None, fast: bool = False,
+    ) -> str:
+        client = self._get_anthropic()
+        # 走流式：复盘报告要生成几千字，非流式请求在中转站/CDN 上常被 100s 空闲超时掐断（524），
+        # SDK 还会把它当 5xx 重试两次，于是表现为"卡很久最后报 52x"。流式全程有数据在走，不会被判超时。
+        # Opus 5：省略 thinking 参数即自适应思考；system 挂 cache_control 复用前缀缓存
+        def run(extra: dict):
+            with client.messages.stream(
+                model=model,
+                max_tokens=max_tokens,
+                system=[{
+                    "type": "text",
+                    "text": system,
+                    "cache_control": {"type": "ephemeral"},
+                }],
+                messages=messages,
+                **({"stop_sequences": list(stop)} if stop else {}),
+                **extra,
+            ) as stream:
+                return stream.get_final_message()
