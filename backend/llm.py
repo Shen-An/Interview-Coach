@@ -203,3 +203,16 @@ class LLMClient:
                 **extra,
             ) as stream:
                 return stream.get_final_message()
+
+        try:
+            # fast 下显式关掉思考：改写这种机械活，自适应思考能让它想上半分钟。
+            resp = run({"thinking": {"type": "disabled"}} if fast else {})
+        except Exception as e:
+            if not fast or "thinking" not in str(e).lower():
+                raise
+            resp = run({})          # 中转站/旧模型不认这个参数，照常跑，只是慢
+        if resp.stop_reason == "refusal":
+            return "（面试官暂时无法回应这个话题，换个问题继续。）"
+        return "".join(b.text for b in resp.content if b.type == "text")
+
+    # ---- research：带原生 web search 工具的调用（每日知识库更新用） ----
