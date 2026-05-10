@@ -216,3 +216,24 @@ class LLMClient:
         return "".join(b.text for b in resp.content if b.type == "text")
 
     # ---- research：带原生 web search 工具的调用（每日知识库更新用） ----
+    def research(
+        self, system: str, prompt: str, max_tokens: int = 8192,
+        allowed_domains: list[str] | None = None,
+    ) -> ResearchResult:
+        """allowed_domains：搜索域名白名单（只写域名，不带 http/https），None = 不限。"""
+        try:
+            return self._rotate(
+                {"anthropic": self._research_anthropic, "openai": self._research_openai},
+                system, prompt, max_tokens, allowed_domains,
+            )
+        except Exception as e:
+            if _NO_SEARCH_MARK not in str(e):
+                raise
+            raise SearchUnavailable(
+                f"配置的通路都没能真正联网搜索。\n\n原因：{e}\n\n"
+                "多数中转站不实现服务端搜索工具，会把 tools 参数静默丢弃——"
+                f"请求照常成功，模型却看不到工具，于是只能拒答或编造。\n"
+                "换成官方直连（把设置里的 BASE_URL 清空、填官方 key），"
+                f"或换一个明确支持 web_search 的中转站即可恢复。\n"
+                "在那之前，「导入日更文件」这条路不受影响——蒸馏用的是普通对话，不需要搜索工具。"
+            ) from e
