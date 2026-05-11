@@ -67,3 +67,20 @@ RESUME_RULES = """
 
 NO_RESUME_RULE = "\n候选人未上传简历：开场让他介绍项目，之后把他讲的项目当简历来深挖，规则同上。\n"
 
+
+def _intel_catalog(intel: str) -> str:
+    """把情报里每节的标题＋主题行抽成目录。长上下文里模型靠它定位，
+    相当于翻目录而不是从头读——但不用付一次工具往返的时间。"""
+    lines = []
+    for part in re.split(r"^## ", intel, flags=re.M)[1:]:
+        head, _, body = part.partition("\n")
+        topic = ""
+        for ln in body.strip().splitlines():
+            if ln.strip():
+                m = re.match(r"\s*主题[:：]\s*(.+)", ln)
+                if m:
+                    topic = m.group(1).strip()
+                break                      # 主题行必须是正文第一行，不往下找
+        lines.append(f"- {head.strip()}" + (f"：{topic}" if topic else ""))
+    return "\n".join(lines)
+
