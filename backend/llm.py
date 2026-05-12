@@ -243,3 +243,15 @@ class LLMClient:
         """网关/旧模型不认域名白名单参数时的典型报错。"""
         s = str(e).lower()
         return "allowed_domains" in s or "filters" in s
+
+    def _research_anthropic(
+        self, model: str, system: str, prompt: str, max_tokens: int,
+        allowed_domains: list[str] | None = None,
+    ) -> ResearchResult:
+        client = self._get_anthropic()
+
+        def tool(tool_type: str, domains: list[str] | None):
+            t = {"type": tool_type, "name": "web_search", "max_uses": 8}
+            if domains:
+                t["allowed_domains"] = list(domains)
+            return [t]
