@@ -255,3 +255,32 @@ class LLMClient:
             if domains:
                 t["allowed_domains"] = list(domains)
             return [t]
+
+        def run(tool_defs):
+            messages = [{"role": "user", "content": prompt}]
+            sources, add = _source_collector()
+            searched = False
+            while True:
+                resp = client.messages.create(
+                    model=model,
+                    max_tokens=max_tokens,
+                    system=system,
+                    tools=tool_defs,
+                    messages=messages,
+                    timeout=600.0,  # 非流式 + 服务端搜索，合法耗时可达几分钟，单独放宽
+                )
+                # 续跑前先收，否则前几轮的来源丢了
+                searched |= _harvest_anthropic_sources(resp.content, add)
+                if resp.stop_reason == "pause_turn":  # 服务端搜索循环到限，续跑
+                    messages = [
+                        {"role": "user", "content": prompt},
+                        {"role": "assistant", "content": resp.content},
+                    ]
+                    continue
+                if not searched:
+                    raise SearchUnavailable(
+                        f"{model} 这条通路全程{_NO_SEARCH_MARK}"
+                        "（中转站多半把工具参数丢了），产出只能是编造或拒答，已丢弃"
+                    )
+                text = "".join(b.text for b in resp.content if b.type == "text")
+                return ResearchResult(text, sources)
