@@ -237,3 +237,9 @@ class LLMClient:
                 f"或换一个明确支持 web_search 的中转站即可恢复。\n"
                 "在那之前，「导入日更文件」这条路不受影响——蒸馏用的是普通对话，不需要搜索工具。"
             ) from e
+
+    @staticmethod
+    def _domain_filter_unsupported(e: Exception) -> bool:
+        """网关/旧模型不认域名白名单参数时的典型报错。"""
+        s = str(e).lower()
+        return "allowed_domains" in s or "filters" in s
