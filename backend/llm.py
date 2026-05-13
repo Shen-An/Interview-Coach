@@ -284,3 +284,21 @@ class LLMClient:
                     )
                 text = "".join(b.text for b in resp.content if b.type == "text")
                 return ResearchResult(text, sources)
+
+        try:
+            return run(tool("web_search_20260209", allowed_domains))
+        except SearchUnavailable:
+            raise                       # 工具被吞了，换工具版本没意义，交给上层轮换提供商
+        except Exception as e:
+            if "web_search" in str(e):  # 旧模型不支持新版搜索工具，降级 basic
+                try:
+                    return run(tool("web_search_20250305", allowed_domains))
+                except SearchUnavailable:
+                    raise
+                except Exception as e2:
+                    if allowed_domains and self._domain_filter_unsupported(e2):
+                        return run(tool("web_search_20250305", None))
+                    raise
+            if allowed_domains and self._domain_filter_unsupported(e):
+                return run(tool("web_search_20260209", None))
+            raise
