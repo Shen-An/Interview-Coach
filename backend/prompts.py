@@ -97,3 +97,27 @@ def _intel_body(intel: str, limit: int) -> tuple[str, int]:
     dropped = intel.count("\n## ", cut)
     return intel[:cut].rstrip(), dropped
 
+
+def build_interviewer_system(
+    round_name: str, company_style: str, resume: str = "", level: str = "应届校招"
+) -> str:
+    persona = _read("INTERVIEWER-PERSONA.md")
+    bank = _read("QUESTION-BANK.md")
+    # 分层注入：目录覆盖全部，正文只给最近的。更早的靠目录那行摘要被"知道存在"，
+    # 而不是像以前那样被静默丢掉——面试官要是真需要，能在目录里看见它。
+    intel = _read("UPDATES.md")[: kb.MAX_UPDATES_CHARS]
+    catalog = _intel_catalog(intel)
+    body, dropped = _intel_body(intel, kb.INTEL_BODY_CHARS)
+    tail = (
+        f"\n（以上是最近的全文；目录里更早的 {dropped} 节只有摘要，需要细节就顺着摘要的关键词问，别编造具体数字。）\n"
+        if dropped else ""
+    )
+    intel_block = (
+        "\n<最新面经情报（时效性最强，出题优先参考；越靠前越新）>\n"
+        f"目录（全部条目，先看这里定位）：\n{catalog}\n\n"
+        f"正文（最近的部分，含细节）：\n{body}{tail}</最新面经情报>\n"
+        if intel.strip() else ""
+    )
+    resume_block = RESUME_RULES.format(resume=resume) if resume.strip() else NO_RESUME_RULE
+    level_block = LEVEL_RULES.get(level, LEVEL_RULES["应届校招"])
+    return f"""你是模拟面试官。人格内核（判人标准、追问链、强弱信号）遵循人格卡；但对话方式以下方「对话方式」为准——人格卡是你的判断力，不是你的话术模板。
