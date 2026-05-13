@@ -302,3 +302,29 @@ class LLMClient:
             if allowed_domains and self._domain_filter_unsupported(e):
                 return run(tool("web_search_20260209", None))
             raise
+
+    def _research_openai(
+        self, model: str, system: str, prompt: str, max_tokens: int,
+        allowed_domains: list[str] | None = None,
+    ) -> ResearchResult:
+        client = self._get_openai()
+
+        def run(tool_type: str, domains: list[str] | None):
+            t = {"type": tool_type}
+            if domains:
+                t["filters"] = {"allowed_domains": list(domains)}
+            resp = client.responses.create(
+                model=model,
+                instructions=system,
+                input=prompt,
+                tools=[t],
+                max_output_tokens=max_tokens,
+                timeout=600.0,  # 非流式 + 服务端搜索，合法耗时可达几分钟，单独放宽
+            )
+            sources, add = _source_collector()
+            if not _harvest_openai_sources(resp, add):
+                raise SearchUnavailable(
+                    f"{model} 这条通路全程{_NO_SEARCH_MARK}"
+                    "（网关多半把工具参数丢了），产出只能是编造或拒答，已丢弃"
+                )
+            return ResearchResult(resp.output_text, sources)
