@@ -84,3 +84,16 @@ def _intel_catalog(intel: str) -> str:
         lines.append(f"- {head.strip()}" + (f"：{topic}" if topic else ""))
     return "\n".join(lines)
 
+
+def _intel_body(intel: str, limit: int) -> tuple[str, int]:
+    """取最近的若干小节全文，返回 (正文, 被省略的节数)。
+    只在 `## ` 边界切，绝不把一节劈成半截。"""
+    if len(intel) <= limit:
+        return intel, 0
+    cut = intel.rfind("\n## ", 0, limit)
+    if cut <= 0:                     # 连一节都放不下，就整节给出去，宁可超一点
+        nxt = intel.find("\n## ", 1)
+        return (intel if nxt < 0 else intel[:nxt]), 0
+    dropped = intel.count("\n## ", cut)
+    return intel[:cut].rstrip(), dropped
+
