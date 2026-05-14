@@ -328,3 +328,26 @@ class LLMClient:
                     "（网关多半把工具参数丢了），产出只能是编造或拒答，已丢弃"
                 )
             return ResearchResult(resp.output_text, sources)
+
+        try:
+            return run("web_search", allowed_domains)
+        except SearchUnavailable:
+            raise
+        except Exception as e:
+            if self._responses_unsupported(e):
+                raise RuntimeError(
+                    "当前网关不支持 OpenAI Responses API，联网搜索用不了。"
+                    "知识库自动更新需要官方 OpenAI 或支持 /v1/responses 的中转站；面试对话不受影响。"
+                ) from e
+            if "web_search" in str(e):
+                try:
+                    return run("web_search_preview", allowed_domains)
+                except SearchUnavailable:
+                    raise
+                except Exception as e2:
+                    if allowed_domains and self._domain_filter_unsupported(e2):
+                        return run("web_search_preview", None)
+                    raise
+            if allowed_domains and self._domain_filter_unsupported(e):
+                return run("web_search", None)
+            raise
