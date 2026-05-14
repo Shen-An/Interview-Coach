@@ -351,3 +351,13 @@ class LLMClient:
             if allowed_domains and self._domain_filter_unsupported(e):
                 return run("web_search", None)
             raise
+
+    @staticmethod
+    def _responses_unsupported(e: Exception) -> bool:
+        """中转站没有 /v1/responses 时的典型报错：404 / not found / unknown path。"""
+        s = str(e).lower()
+        return (
+            getattr(e, "status_code", None) == 404
+            or "404" in s or "not found" in s or "unknown request url" in s
+            or ("unsupported" in s and "responses" in s)
+        )
