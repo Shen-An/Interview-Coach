@@ -361,3 +361,34 @@ class LLMClient:
             or "404" in s or "not found" in s or "unknown request url" in s
             or ("unsupported" in s and "responses" in s)
         )
+
+    def _chat_completions_fallback(
+        self, model: str, system: str, messages: list[dict], max_tokens: int,
+        stop: list[str] | None = None, fast: bool = False,
+    ) -> str:
+        client = self._get_openai()
+        msgs = [{"role": "system", "content": system}] + [
+            {"role": m["role"], "content": m["content"]} for m in messages
+        ]
+        def collect(**kw):
+            parts = []
+            for chunk in client.chat.completions.create(
+                model=model, messages=msgs, stream=True, **kw
+            ):
+                if not chunk.choices:
+                    continue
+                piece = chunk.choices[0].delta.content
+                if piece:
+                    parts.append(piece)
+            return "".join(parts)
+
+        extra = {"stop": list(stop)[:4]} if stop else {}   # OpenAI 侧最多 4 条
+        if fast:
+            extra["reasoning_effort"] = "low"
+        try:
+            return collect(max_completion_tokens=max_tokens, **extra)
+        except Exception as e:
+            # 旧后端的网关只认 max_tokens
+            if "max_completion_tokens" not in str(e):
+                raise
+            return collect(max_tokens=max_tokens, **extra)
