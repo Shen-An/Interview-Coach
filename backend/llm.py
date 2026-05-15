@@ -392,3 +392,18 @@ class LLMClient:
             if "max_completion_tokens" not in str(e):
                 raise
             return collect(max_tokens=max_tokens, **extra)
+
+    @staticmethod
+    def _responses_text(resp) -> str:
+        """只取 message 项里的 output_text。有的中转站是拿 chat/completions 假装
+        Responses API，会把模型的思考过程（reasoning）也当成正文塞进来——面试场景下
+        那等于把面试官的心理活动念给候选人听。按 item 类型过一道筛。"""
+        parts = []
+        for item in getattr(resp, "output", None) or []:
+            if getattr(item, "type", "") != "message":
+                continue
+            for c in getattr(item, "content", None) or []:
+                if getattr(c, "type", "") == "output_text":
+                    parts.append(getattr(c, "text", "") or "")
+        text = "".join(parts).strip()
+        return text or (getattr(resp, "output_text", "") or "")
