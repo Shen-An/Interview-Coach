@@ -407,3 +407,27 @@ class LLMClient:
                     parts.append(getattr(c, "text", "") or "")
         text = "".join(parts).strip()
         return text or (getattr(resp, "output_text", "") or "")
+
+    def _chat_openai(
+        self, model: str, system: str, messages: list[dict], max_tokens: int,
+        stop: list[str] | None = None, fast: bool = False,
+    ) -> str:
+        if self._force_chat_completions:
+            return self._chat_completions_fallback(model, system, messages, max_tokens, stop, fast)
+        client = self._get_openai()
+        try:
+            # 同 Anthropic 通路：长输出走流式，避开中转站/CDN 的空闲超时
+            with client.responses.stream(
+                model=model,
+                instructions=system,
+                input=[{"role": m["role"], "content": m["content"]} for m in messages],
+                max_output_tokens=max_tokens,
+                **({"reasoning": {"effort": "low"}} if fast else {}),
+            ) as stream:
+                resp = stream.get_final_response()
+        except Exception as e:
+            if not self._responses_unsupported(e):
+                raise
+            self._force_chat_completions = True  # 这个网关没有 Responses API，之后直接走降级
+            return self._chat_completions_fallback(model, system, messages, max_tokens, stop, fast)
+        return self._responses_text(resp)
