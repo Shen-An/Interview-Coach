@@ -17,3 +17,23 @@
 - 🔥 ReAct 与 CoT 的区别？ReAct / Plan-and-Execute / Reflexion 三者区别和适用场景？
 - ToT 和 CoT 的本质区别？什么时候 CoT 反而降低性能？BFS/DFS 搜索策略怎么选？
 - 反思（Reflection）和 ReAct 循环有什么区别？反思结果会不会污染上下文？失败如何兜底？
+
+### 模型底层
+- 🔥 Transformer 核心结构，Q/K/V 为什么要分三个向量？Attention 怎么算？为什么除以 √d_k？
+- 同一个 Token 在不同位置的向量一样吗？GQA 比 MHA 省多少 KV-Cache？
+- Token 怎么切分（BPE）？为什么不直接用字符或单词？中英文/代码消耗为什么不同？
+- 上下文窗口由什么决定？是不是越大越好？Lost in the Middle 怎么产生、怎么解？
+- 支持更长上下文需要怎样的训练？为什么不直接把窗口做大？
+- KV Cache 的作用？为什么 Agent 场景更敏感？PagedAttention / Continuous Batching / vLLM vs SGLang？
+- 幻觉是怎么产生的？有哪些缓解方法？
+- 大模型的"涌现能力"是什么？CoT 什么条件下才涌现？
+
+### 训练方法
+- 🔥 SFT / PPO / DPO / GRPO 分别什么特点？
+- PPO 为什么既有 reward model 又有 critic model？
+- DPO 为什么不需要在线采样？数据格式？损失函数怎么写？
+- GRPO 训练出现全 0 全 1 怎么办？GSPO/DAPO 与 GRPO 区别？
+- 为什么有了 SFT 还要 RLHF？RLHF 三阶段的 loss 各怎么定义？
+- Agent 训练三阶段 CPT→SFT→RL：🔥 为什么 SFT 时要 mask observation tokens？（字节经典追问）
+- LoRA / QLoRA 核心思想？LoRA 超越"减参数"的 4 个优点？矩阵初始化方式？
+- Function Call 能力用 GRPO 提升，奖励函数怎么设计？过程奖励怎么加？
