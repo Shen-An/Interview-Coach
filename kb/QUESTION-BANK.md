@@ -37,3 +37,23 @@
 - Agent 训练三阶段 CPT→SFT→RL：🔥 为什么 SFT 时要 mask observation tokens？（字节经典追问）
 - LoRA / QLoRA 核心思想？LoRA 超越"减参数"的 4 个优点？矩阵初始化方式？
 - Function Call 能力用 GRPO 提升，奖励函数怎么设计？过程奖励怎么加？
+
+### 协议与生态四件套
+- 🔥 Function Call 是什么？底层怎么实现？四步流程？Parallel Function Call？
+- 🔥 MCP 是什么协议？解决什么问题？和 Function Calling 的本质区别（"三大绝症"）？能共存吗？
+- MCP 三种原语 Resources/Tools/Prompts？Resource 和 Tool 什么时候用哪个？
+- MCP stdio vs Streamable HTTP？JSON-RPC 怎么工作？notifications 机制？
+- 🔥 MCP 2026-07-28 为什么要无状态化？旧 session 协议有什么问题？迁移要改什么？
+- Mcp-Method/Mcp-Name HTTP 头解决了什么问题？
+- MCP Token 税是什么？你用 MCP 遇到过什么问题、怎么解决？
+- 🔥 A2A 和 MCP 的区别？为什么 MCP 解决不了 A2A 的问题？Agent Card 是什么？A2A 三种通信模式、任务状态机？
+- MCP / A2A / AG-UI 三协议怎么分类？
+- 🔥 Skill、MCP、Tools、Function Calling 四者关系？（2026 标准四件套题）
+- 🔥 Skills vs Tool 的 5 个本质区别（8 月最高频）；Skill 是知识库还是融合在 Agent 里？什么阶段 fetch？
+- Skills 和 System Prompt / Prompt / Few-shot 的区别？为什么说"Skill 不是更长的 Prompt"？
+- 🔥 Rules 和 Skills 的本质区别？为什么 Skill 不能写进 Rules？Instructions+Rules+MCP+Skills 四件套怎么区分？
+- 渐进式披露（Progressive Disclosure）是什么？和 RAG 是什么关系？怎么实现？
+- SSE vs WebSocket 底层区别？为什么 Agent 用 SSE？
+- RPC vs HTTP 本质区别？Agent 通信到底走哪个？
+
+---
