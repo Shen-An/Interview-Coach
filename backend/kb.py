@@ -20,3 +20,24 @@ MAX_UPDATES_CHARS = 60000   # UPDATES.md 总量上限（保新弃旧），约 20
 # 情报 55k 压着人格卡+题库 16k，面试官的注意力会被面经带偏。
 INTEL_BODY_CHARS = 20000    # 约 7 天的全文
 MAX_IMPORT_CHARS = 300000   # 单次导入原文上限
+
+# ---- 联网搜索域名白名单（只写域名，不带 http/https；子域名自动包含）----
+# 面经与技术社区
+SEARCH_DOMAINS_CN = [
+    "zhihu.com",          # 知乎
+    "nowcoder.com",       # 牛客网
+    "xiaohongshu.com",    # 小红书
+    "v2ex.com",           # V2EX
+    "juejin.cn",          # 掘金
+    "csdn.net",           # CSDN
+    "cnblogs.com",        # 博客园
+    "segmentfault.com",   # 思否
+    "jianshu.com",        # 简书
+    "bilibili.com",       # B 站（面经视频/专栏）
+    "mp.weixin.qq.com",   # 微信公众号文章
+    # 行业动态
+    "qbitai.com",         # 量子位
+    "jiqizhixin.com",     # 机器之心
+    "infoq.cn",           # InfoQ 中文
+    "36kr.com",           # 36 氪
+]
