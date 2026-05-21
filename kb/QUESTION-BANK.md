@@ -57,3 +57,30 @@
 - RPC vs HTTP 本质区别？Agent 通信到底走哪个？
 
 ---
+
+## 第 2 层：设计与决策能力（拉开分差）
+
+### 记忆与上下文
+- 🔥 Agent Memory 怎么设计？工作/短期/长期/实体记忆分别怎么存、怎么落地？
+- 🔥 记忆的滚动更新、摘要压缩、结构化压缩怎么做？多重上下文压缩机制？（蚂蚁网商）
+- 🔥 会话很长 Prompt 越来越大怎么处理？除截断外的压缩方法？压缩过度导致效果下降怎么发现？
+- 记忆为什么用向量库存储而不是每轮拼进 prompt？记忆和 RAG 知识库共不共用？
+- 记忆检索怎么平衡相关性+时近性？注入多少记忆合适？用户反复说同一件事，重复存储还是语义合并？
+- 长期记忆怎么避免"记忆污染"？Memory 冷启动问题？
+- Context Engineering vs Prompt Engineering vs Harness Engineering 三者关系？
+- 上下文腐化（Context Rot）/ 上下文漂移是什么？根因？怎么识别和解决？
+- Auto-Compact 在压什么、留什么、丢什么？RAG 能不能替代 Auto-Compact？
+- Claude Code 底层记忆原理？CLAUDE.md 为什么作为用户消息注入而不是 System Prompt？
+- 为什么 Claude Code 不用 RAG 检索代码而用 grep？什么时候该用 RAG 什么时候该用 Grep？
+- To-Do List 机制为什么能让模型更聚焦？怎么落地？
+
+### 工具调用设计
+- 🔥 Tool schema 怎么设计？描述为什么要写 What+When+How+Limit？annotations（destructiveHint/readOnlyHint）怎么用？
+- 🔥 工具太多时怎么管理？百级工具路由怎么设计？工具选择错误怎么优化？
+- 多工具并行调用怎么实现？依赖关系（DAG）怎么处理？
+- 工具描述怎么优化才能提升调用准确率？
+- 两个工具对同一问题返回格式不统一怎么处理？MCP 工具返回格式不统一怎么办？
+- 🔥 大模型输出格式不稳定，工程上怎么约束？约束解码 / JSON Mode / Grammar-based 解码区别？
+- Tool 直接暴露给模型还是服务端分发？
+- 采用 SFT 或 RL 怎么解决工具调用不准确？
+- 什么是工具调用幻觉？类型及解法？
