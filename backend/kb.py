@@ -99,3 +99,20 @@ RESEARCH_SYSTEM = """你是模拟面试官的每日情报官。用 web_search �
   （"今日无新增"的情况不需要主题行。）"""
 
 
+
+def site_stats(sources: list[dict]) -> list[dict]:
+    """把引用到的网页按站点归并计数，多的排前面：[{"host": "zhihu.com", "count": 5}]。"""
+    hosts = []
+    for src in sources or []:
+        host = urlparse(src.get("url", "")).netloc.lower()
+        if host.startswith("www."):
+            host = host[4:]
+        if not host:
+            continue
+        # 子域名归并到白名单里的主站，zhuanlan.zhihu.com 和 zhihu.com 算一家
+        hosts.append(next(
+            (d for d in SEARCH_ALLOWED_DOMAINS if host == d or host.endswith("." + d)),
+            host,
+        ))
+    return [{"host": h, "count": n} for h, n in Counter(hosts).most_common()]
+
