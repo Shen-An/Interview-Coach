@@ -116,3 +116,32 @@ def site_stats(sources: list[dict]) -> list[dict]:
         ))
     return [{"host": h, "count": n} for h, n in Counter(hosts).most_common()]
 
+
+class KBManager:
+    def __init__(self, res_kb: Path, data_kb: Path):
+        self.res_kb = res_kb
+        self.data_kb = data_kb
+
+    def seed(self) -> None:
+        """把安装包里的只读 kb 播种到可写目录；只补缺失文件，不覆盖用户已有/已改的。"""
+        self.data_kb.mkdir(parents=True, exist_ok=True)
+        if self.res_kb.exists() and self.res_kb.resolve() != self.data_kb.resolve():
+            for f in self.res_kb.glob("*.md"):
+                target = self.data_kb / f.name
+                if not target.exists():
+                    shutil.copy2(f, target)
+
+    def state(self) -> dict:
+        files = []
+        for f in sorted(self.data_kb.glob("*.md")):
+            files.append({
+                "name": f.name,
+                "chars": len(f.read_text(encoding="utf-8", errors="ignore")),
+                "mtime": datetime.fromtimestamp(f.stat().st_mtime).isoformat(timespec="seconds"),
+            })
+        updates = self.data_kb / UPDATES_NAME
+        latest = ""
+        if updates.exists():
+            m = re.search(r"^## (.+)$", updates.read_text(encoding="utf-8"), re.M)
+            latest = m.group(1) if m else ""
+        return {"files": files, "latest_update": latest, "dir": str(self.data_kb)}
