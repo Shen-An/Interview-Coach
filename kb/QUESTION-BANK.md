@@ -103,3 +103,23 @@
 - Prompt 明确要求不返回某商品但模型仍返回且多次出现——原因和解法？
 - 为什么先调 Tool 查商品再走 RAG 检索？（小红书原题）
 - 多轮对话中省略/指代怎么补全成可检索的问题？
+
+### 架构选型
+- 🔥 单 Agent 还是多 Agent？判据？多 Agent 的代价？什么情况不该用 Multi-Agent？
+- 🔥 多 Agent 为什么需要中心化编排？Supervisor / Swarm / Hierarchical 三种架构怎么选？
+- Multi-Agent 三层架构（Router→Manager→Sub-Agent）？主子 Agent 通信链路？
+- 为什么拆多个 Agent？一个 Agent 多挂几个 Tool 不行吗？子 Agent 能不能共享所有工具？
+- 子 Agent 为什么能减少上下文污染？子 Agent 上下文和父 Agent 什么关系？
+- 🔥 框架自研还是 LangChain/LangGraph？LangGraph 的 State/Node/Edge？为什么不选 AutoGen/CrewAI？
+- 框架能力不满足时怎么扩展？选错框架的替换成本？
+- OpenClaw 为什么火爆？技术/架构上做对了什么？核心边界和局限？
+- OpenClaw vs Nanobot vs NanoClaw？OpenClaw/Hermes/Claude Code 三框架区别？
+- Mem0 vs Zep vs Letta 三大记忆框架怎么选？
+- LangSmith / LangFuse / Phoenix 观测工具怎么选？
+- 为什么 Anthropic 说"不要过早引入 Multi-Agent"？
+- 意图识别：四层意图识别是哪四层？为什么不能直接让大模型判断意图？并行化意图识别怎么实现、为什么有必要？
+- Agent 处理模糊指令：直接检索 vs 先反问确认？怎么判断 query 模糊还是清晰？
+
+---
+
+## 第 3 层：落地与工程化（SP/SSP 分水岭）
