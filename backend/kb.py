@@ -145,3 +145,17 @@ class KBManager:
             m = re.search(r"^## (.+)$", updates.read_text(encoding="utf-8"), re.M)
             latest = m.group(1) if m else ""
         return {"files": files, "latest_update": latest, "dir": str(self.data_kb)}
+
+    def import_daily(self, llm, filename: str, text: str) -> dict:
+        """蒸馏日更文档为增量情报，写入 UPDATES.md（同来源文件重复导入则替换旧节）。"""
+        text = text[:MAX_IMPORT_CHARS]
+        distilled = llm.chat(
+            DISTILL_SYSTEM,
+            [{"role": "user", "content": f"文件名：{filename}\n\n{text}"}],
+            max_tokens=8192,
+        ).strip()
+        if len(distilled) < 100:
+            raise ValueError("蒸馏结果过短，文档里可能没有可用的增量内容")
+
+        stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        new_section = f"## {stamp} · 来自 {filename}\n\n{distilled}\n"
