@@ -159,3 +159,25 @@ class KBManager:
 
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
         new_section = f"## {stamp} · 来自 {filename}\n\n{distilled}\n"
+
+        updates = self.data_kb / UPDATES_NAME
+        old_sections: list[str] = []
+        if updates.exists():
+            body = updates.read_text(encoding="utf-8")
+            body = body.split("\n## ", 1)[-1] if "\n## " in body else ""
+            if body:
+                old_sections = ["## " + s for s in ("\n" + "## " + body).split("\n## ") if s.strip()]
+                # 同来源的旧节丢弃
+                old_sections = [s for s in old_sections if f"来自 {filename}" not in s.split("\n", 1)[0]]
+
+        merged = UPDATES_HEADER + "\n" + new_section
+        for s in old_sections:
+            if len(merged) + len(s) > MAX_UPDATES_CHARS:
+                break
+            merged += "\n" + s
+        updates.write_text(merged, encoding="utf-8")
+        return {
+            "distilled_chars": len(distilled),
+            "section": f"{stamp} · 来自 {filename}",
+            "summary": distilled,
+        }
