@@ -181,3 +181,24 @@ class KBManager:
             "section": f"{stamp} · 来自 {filename}",
             "summary": distilled,
         }
+
+    def daily_research(self, llm) -> dict:
+        """应用内跑每日更新：LLM 联网搜索近 3 天新面经，蒸馏后写入 UPDATES.md。"""
+        today = datetime.now().strftime("%Y-%m-%d")
+        existing = self.latest_intel()      # 全量回看，跟注入窗口一致，才不会重复收录
+        prompt = (
+            f"今天是 {today}。以下是知识库已收录的情报（用于去重，别再输出这些）：\n\n"
+            f"<已收录>\n{existing or '（暂无）'}\n</已收录>\n\n"
+            "现在开始搜索并输出新增情报。"
+        )
+        res = llm.research(
+            RESEARCH_SYSTEM, prompt, max_tokens=8192,
+            allowed_domains=SEARCH_ALLOWED_DOMAINS,
+        )
+        distilled = res.text.strip()
+        if not distilled:
+            raise ValueError("情报搜集返回为空，请稍后重试")
+
+        no_news = "今日无新增" in distilled and len(distilled) < 120
+        section_title = f"{today} · 每日自动更新"
+        new_section = f"## {section_title}\n\n{distilled}\n"
