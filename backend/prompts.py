@@ -204,3 +204,14 @@ REWRITE_SYSTEM = """你是语音识别的后处理器。下面这段是候选人
 
 只输出修正后的文本本身，不要任何解释、前缀或引号。"""
 
+
+def build_rewrite_prompt(text: str, last_question: str = "", resume: str = "") -> str:
+    """上下文是这个功能能不能用的关键：没有它，模型也猜不出「从盘卡」是 cross-encoder。
+    面试官刚问的那句话定位最准，简历补技术栈。"""
+    blocks = []
+    if last_question.strip():
+        blocks.append(f"<面试官刚问的问题>\n{last_question.strip()[:500]}\n</面试官刚问的问题>")
+    if resume.strip():
+        blocks.append(f"<候选人简历（用来判断他会说哪些技术词）>\n{resume.strip()[:1500]}\n</候选人简历>")
+    ctx = "\n\n".join(blocks)
+    return (f"{ctx}\n\n" if ctx else "") + f"<待修正的转写>\n{text}\n</待修正的转写>"
