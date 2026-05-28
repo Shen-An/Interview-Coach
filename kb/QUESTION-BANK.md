@@ -203,3 +203,27 @@
 - **S10 滑动窗口限流**：Redis 用什么数据结构？结构体包含哪些字段？和令牌桶比缺点？
 - **S11 TUI 交互式视频剪辑工具 MVP**（字节 OC 版新题型）：分层架构？
 - **S12 法律文档检索系统 / 新闻聚合智能问答**：GraphRAG or 传统 RAG，选哪个为什么？
+
+## 手撕代码（43 道全景，按四大支柱）
+
+**支柱一：经典算法（近期原题）**
+TopK（美团）· LRU Cache（字节，双向链表+哈希手写）· 合并区间（蚂蚁）· 删除链表倒数第 k 节点（美团 Keeta）· 最长公共子串（字节二面）· 二叉树最大宽度（字节，位置编号法+溢出陷阱）· 合并两个有序链表 · 合并 K 个升序链表 · 搜索旋转数组（快手）
+
+**支柱二：Agent 原理手写（字节面试官原话："手写一个 ReAct 循环，不依赖任何框架，从 system prompt 到 tool_call 解析完整跑通"）**
+ReAct 完整循环 + _detect_loop + 异常分类 · Tool 调用超时+重试+降级（指数退避+熔断）· 滑动窗口 + Token 计数器 · 多 Agent 消息总线 · Skills 渐进式披露加载器 · FSM 任务状态机（含 checkpoint）· Agentic RAG 循环控制器（4 层幻觉治理+分层路由）· 多 Agent 死循环防治（架构/逻辑/监控 3 层）· 工具选择路由器 · 并行化意图识别器 · 四层意图识别路由 · 智能客服状态机 · 多轮 Query 改写器 · 两阶段记忆压缩（Dream-like）· Mem0 风格记忆系统（向量+图）· RAG 召回率计算+评测 · LoRA 可插拔加载器 · PreToolUse Hook 确定性规则匹配（删库防御）· AI Gateway 网关治理（限流+熔断+降级+成本统计）· 生产级 MCP Server（Tool 定义+安全校验+风险标注）· Agent Harness 框架（调度+监控+错误隔离）
+
+**支柱三：并发与系统**
+高并发 Top N 实时统计 · Python Lock vs RLock 线程安全计数器 · asyncio.gather vs 多线程调 10 个 Embedding 接口的资源差异 · 滑动窗口限流
+
+**支柱四：追问式深挖（写完必被追问）**
+"能不能优化到 O(n)？""为什么用 pydantic？""B 为什么初始化为 0？""链表闭环怎么类比 Agent 死循环？"
+
+## 工程基本功兜底（京东/蚂蚁风格，防偏科）
+
+- MySQL：ACID、隔离级别与 ReadView 个数、MVCC、B+ 树 vs B 树、聚簇 vs 非聚簇、联合索引、索引失效（LIKE）、覆盖索引、慢 SQL 排查、海量数据优化
+- Redis：缓存穿透/击穿/雪崩、分布式锁、缓存一致性、滑动窗口限流结构
+- 消息队列：Kafka 为什么不直连 DB？RocketMQ 持久化？消息结果与请求怎么对应？dead-letter？
+- Java：线程池参数、FullGC/OOM 排查命令、锁类型、volatile、HashMap 结构、Java 8→17
+- Python：GIL、Lock vs RLock、协程 vs 线程、asyncio 优势与注意点
+- 网络：HTTPS 握手、RPC vs HTTP、SSE vs WebSocket
+- C++（如候选人是 C++ 背景）：编译链接流程
