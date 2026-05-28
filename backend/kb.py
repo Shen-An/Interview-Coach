@@ -202,3 +202,28 @@ class KBManager:
         no_news = "今日无新增" in distilled and len(distilled) < 120
         section_title = f"{today} · 每日自动更新"
         new_section = f"## {section_title}\n\n{distilled}\n"
+
+        updates = self.data_kb / UPDATES_NAME
+        old_sections: list[str] = []
+        if updates.exists():
+            body = updates.read_text(encoding="utf-8")
+            body = body.split("\n## ", 1)[-1] if "\n## " in body else ""
+            if body:
+                old_sections = ["## " + s for s in ("\n" + "## " + body).split("\n## ") if s.strip()]
+                # 同日的自动更新节替换（当天重跑不堆积）
+                old_sections = [s for s in old_sections if section_title not in s.split("\n", 1)[0]]
+
+        merged = UPDATES_HEADER + "\n" + new_section
+        for s in old_sections:
+            if len(merged) + len(s) > MAX_UPDATES_CHARS:
+                break
+            merged += "\n" + s
+        updates.write_text(merged, encoding="utf-8")
+        return {
+            "no_news": no_news,
+            "section": section_title,
+            "chars": len(distilled),
+            "summary": distilled,                 # 正文，前端直接渲染给用户看
+            "sites": site_stats(res.sources),     # 命中的站点及次数
+            "sources": res.sources[:40],          # 具体链接，供展开查看
+        }
