@@ -227,3 +227,23 @@ ReAct 完整循环 + _detect_loop + 异常分类 · Tool 调用超时+重试+降
 - Python：GIL、Lock vs RLock、协程 vs 线程、asyncio 优势与注意点
 - 网络：HTTPS 握手、RPC vs HTTP、SSE vs WebSocket
 - C++（如候选人是 C++ 背景）：编译链接流程
+
+## 行业视野抽查（按面试月份换弹药，2026-08 版）
+
+- OpenAI 开源 Codex Harness（Apache-2.0，ARC-AGI-3 13.3%→38.3%）意味着什么？与 DeepSeek Harness"安卓 vs iOS"哲学差异？
+- 智谱 GLM-5.3 因 1097 个中高危缺陷推迟开源的启示？国产四强（GLM-5.3/Qwen3.8-Max/DeepSeek V4/Kimi K3）选型矩阵？
+- 信通院可信标准三数字？中美双轨（vs OpenAI Preparedness Framework）？
+- Claude Code subagent forking / @-mention 跨会话通信 / Hook 机制 / Dynamic Workflows？
+- OpenClaw 24.8 万 Star 登顶 GitHub 反映什么趋势？fail-closed 策略？requireApproval？
+- MCP 无状态化 / MCP Apps / Tasks 一级扩展 / OAuth 零接触授权？
+- Anthropic 2 万亿 IPO 估值 / 阿里 800 亿港元全投 AI / 德勤"仅 1/5 美企就绪"——你怎么看 Agent 落地节奏？
+
+## 各厂风格差异（E100，决定我扮演哪种压力模式）
+
+| 厂 | 风格 | 典型压力点 |
+|---|---|---|
+| **字节** | 追工程细节 | 死循环、异常兜底、token 成本、trace、评估指标，场景题全是"线上出问题了怎么办" |
+| **腾讯** | 考协议生态 | MCP 原理、A2A、FC schema 设计、外部工具生态集成 |
+| **阿里/蚂蚁** | 求架构格局+工程可靠性 | 多 Agent 编排、平台化、网关治理、并发与成本、分布式锁/缓存一致性 |
+| **美团** | 场景落地 | 智能客服三端设计、RAG vs Skill 选型、"线上会怎么处理" |
+| **京东** | 后端基本功+大模型应用 | Java/MySQL/中间件占一半，RAG 链路 |
