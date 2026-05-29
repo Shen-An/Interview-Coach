@@ -227,3 +227,21 @@ class KBManager:
             "sites": site_stats(res.sources),     # 命中的站点及次数
             "sources": res.sources[:40],          # 具体链接，供展开查看
         }
+
+    def latest_section(self) -> dict:
+        """最新一节增量情报（标题 + 正文），供「查看情报」随时翻出来。"""
+        updates = self.data_kb / UPDATES_NAME
+        if not updates.exists():
+            return {"section": "", "summary": ""}
+        parts = re.split(r"^## ", updates.read_text(encoding="utf-8"), flags=re.M)
+        if len(parts) < 2:
+            return {"section": "", "summary": ""}
+        title, _, content = parts[1].partition("\n")   # parts[1] 就是最新一节
+        return {"section": title.strip(), "summary": content.strip()}
+
+    def latest_intel(self, cap: int = MAX_UPDATES_CHARS) -> str:
+        """给面试官提示词用：最新在前的增量情报，截断到 cap。"""
+        updates = self.data_kb / UPDATES_NAME
+        if not updates.exists():
+            return ""
+        return updates.read_text(encoding="utf-8")[:cap]
