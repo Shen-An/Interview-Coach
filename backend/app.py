@@ -13,3 +13,33 @@ import time
 import uuid
 from datetime import datetime
 from pathlib import Path
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
+ROOT = Path(__file__).resolve().parent.parent
+# 打包运行时由 Electron 注入：IC_RES_DIR=只读资源(kb/frontend)，IC_DATA_DIR=可写数据(.env/sessions)
+RES_DIR = Path(os.environ.get("IC_RES_DIR", ROOT))
+DATA_DIR = Path(os.environ.get("IC_DATA_DIR", ROOT))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+ENV_PATH = DATA_DIR / ".env"
+if not ENV_PATH.exists():  # 首次运行：生成配置模板
+    example = RES_DIR / ".env.example"
+    ENV_PATH.write_text(
+        example.read_text(encoding="utf-8") if example.exists() else "LLM_PROVIDER=anthropic\nANTHROPIC_API_KEY=\n",
+        encoding="utf-8",
+    )
+# override=True：.env 是唯一事实来源。机器/终端里残留的 ANTHROPIC_*/OPENAI_* 变量
+# （常见于装过各类 AI CLI 的开发机，BASE_URL 往往指向一个已经换了端口的本地代理）
+# 会被 SDK 悄悄捡走，症状是"配置明明对，请求却挂死在一个不存在的地址上"。
+load_dotenv(ENV_PATH, override=True)
+os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)  # 不归我们管的 SDK 认证变量，防止串到别人的网关
+from .kb import KBManager  # noqa: E402
+
+kb_mgr = KBManager(RES_DIR / "kb", DATA_DIR / "kb")
+kb_mgr.seed()
+os.environ["IC_KB_DIR"] = str(DATA_DIR / "kb")
