@@ -43,3 +43,16 @@ from .kb import KBManager  # noqa: E402
 kb_mgr = KBManager(RES_DIR / "kb", DATA_DIR / "kb")
 kb_mgr.seed()
 os.environ["IC_KB_DIR"] = str(DATA_DIR / "kb")
+
+from . import prompts, resume as resume_mod  # noqa: E402
+from .llm import LLMClient  # noqa: E402
+
+app = FastAPI(title="interview-coach")
+llm = LLMClient()
+
+SESSIONS_DIR = DATA_DIR / "sessions"
+SESSIONS_DIR.mkdir(exist_ok=True)
+
+RESUME_PATH = DATA_DIR / "resume.txt"
+RESUME_META = DATA_DIR / "resume.meta.json"
+
