@@ -85,3 +85,13 @@ OPENING_RESUME = (
     "简历上的东西不用复述一遍，我等下会挨个问。"
 )
 
+
+class StartReq(BaseModel):
+    round: str = "二面"
+    style: str = "字节"
+    level: str = "应届校招"
+
+
+class TurnReq(BaseModel):
+    text: str
+
