@@ -95,3 +95,18 @@ class StartReq(BaseModel):
 class TurnReq(BaseModel):
     text: str
 
+
+class RewriteReq(BaseModel):
+    text: str
+    session_id: str = ""
+
+
+SETTINGS_KEYS = [
+    "LLM_PROVIDER", "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "ANTHROPIC_BASE_URL",
+    "OPENAI_API_KEY", "OPENAI_MODEL", "OPENAI_BASE_URL",
+    "STT_API_KEY", "STT_BASE_URL", "STT_MODEL", "STT_REWRITE",
+    "TTS_API_KEY", "TTS_BASE_URL", "TTS_MODEL", "TTS_VOICE",
+]
+
+ENV_TEMPLATE = """# ===== interview-coach 配置（可在应用「设置」里修改） =====
+LLM_PROVIDER={LLM_PROVIDER}
