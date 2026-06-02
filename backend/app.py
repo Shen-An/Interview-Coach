@@ -110,3 +110,28 @@ SETTINGS_KEYS = [
 
 ENV_TEMPLATE = """# ===== interview-coach 配置（可在应用「设置」里修改） =====
 LLM_PROVIDER={LLM_PROVIDER}
+
+# --- Anthropic (Claude Messages API；中转站填 ANTHROPIC_BASE_URL，不带 /v1) ---
+ANTHROPIC_API_KEY={ANTHROPIC_API_KEY}
+ANTHROPIC_MODEL={ANTHROPIC_MODEL}
+ANTHROPIC_BASE_URL={ANTHROPIC_BASE_URL}
+
+# --- OpenAI (Responses API，兼容网关填 OPENAI_BASE_URL) ---
+OPENAI_API_KEY={OPENAI_API_KEY}
+OPENAI_MODEL={OPENAI_MODEL}
+OPENAI_BASE_URL={OPENAI_BASE_URL}
+
+# --- 语音转写（whisper 兼容接口即可；留空则复用 OPENAI_*） ---
+STT_API_KEY={STT_API_KEY}
+STT_BASE_URL={STT_BASE_URL}
+STT_MODEL={STT_MODEL}
+# 语音输入后用对话模型顺一遍转写（修同音错字/术语，不润色）：on / off
+STT_REWRITE={STT_REWRITE}
+
+# --- 面试官语音合成（OpenAI 兼容 /audio/speech；留空则用 Windows 本地语音） ---
+TTS_API_KEY={TTS_API_KEY}
+TTS_BASE_URL={TTS_BASE_URL}
+TTS_MODEL={TTS_MODEL}
+TTS_VOICE={TTS_VOICE}
+"""
+
