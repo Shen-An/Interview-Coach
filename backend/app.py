@@ -56,3 +56,32 @@ SESSIONS_DIR.mkdir(exist_ok=True)
 RESUME_PATH = DATA_DIR / "resume.txt"
 RESUME_META = DATA_DIR / "resume.meta.json"
 
+
+def load_resume() -> tuple[str, dict]:
+    """返回 (简历全文, 元信息)；未上传时为空。"""
+    if not RESUME_PATH.exists():
+        return "", {}
+    text = RESUME_PATH.read_text(encoding="utf-8")
+    meta = {}
+    if RESUME_META.exists():
+        try:
+            meta = json.loads(RESUME_META.read_text(encoding="utf-8"))
+        except Exception:
+            meta = {}
+    return text, meta
+
+# 内存会话表：{sid: {round, style, messages: [...], started_at}}
+_sessions: dict[str, dict] = {}
+
+OPENING = (
+    "你好，我是今天的面试官，负责 Agent 平台这块。今天这轮 {round}，前面聊项目，后面有代码题。"
+    "先自我介绍吧，三分钟以内，重点两件事：你的背景，以及为什么选 Agent 方向。"
+    "介绍完直接告诉我，你最想让我深挖的项目是哪个。"
+)
+
+OPENING_RESUME = (
+    "你好，我是今天的面试官，负责 Agent 平台这块。今天这轮 {round}，前面聊项目，后面有代码题。"
+    "你的简历我看过了。先花两分钟自我介绍——重点讲你为什么选 Agent 方向，"
+    "简历上的东西不用复述一遍，我等下会挨个问。"
+)
+
