@@ -135,3 +135,14 @@ TTS_MODEL={TTS_MODEL}
 TTS_VOICE={TTS_VOICE}
 """
 
+
+class SettingsReq(BaseModel):
+    values: dict[str, str] = {}
+
+
+@app.get("/api/settings")
+def get_settings():
+    return {k: os.getenv(k, "") for k in SETTINGS_KEYS}
+
+
+@app.post("/api/settings")
