@@ -169,3 +169,23 @@ def save_settings(req: SettingsReq):
             "stt_rewrite": _rewrite_on(),
             "stt_api_ready": bool(os.getenv("STT_API_KEY") or os.getenv("OPENAI_API_KEY"))}
 
+
+@app.get("/api/config")
+def get_config():
+    ok, detail = llm.ready()
+    chain = llm.chain()
+    primary = chain[0] if chain else llm.cfg.provider
+    return {
+        "ready": ok,
+        "detail": detail,
+        "provider": primary,
+        "model": llm.model_of(primary) if chain else "",
+        "fallback": f"{chain[1]} / {llm.model_of(chain[1])}" if len(chain) > 1 else "",
+        "stt_api_ready": bool(os.getenv("STT_API_KEY") or os.getenv("OPENAI_API_KEY")),
+        "stt_rewrite": _rewrite_on(),
+        "tts_api_ready": bool(os.getenv("TTS_API_KEY") or (os.getenv("TTS_BASE_URL") and os.getenv("OPENAI_API_KEY")) or (os.getenv("OPENAI_API_KEY") and os.getenv("TTS_MODEL"))),
+        "env_path": str(ENV_PATH),
+        "resume": _resume_state(),
+        "kb": kb_mgr.state(),
+    }
+
