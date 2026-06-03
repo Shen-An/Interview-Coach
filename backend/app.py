@@ -189,3 +189,22 @@ def get_config():
         "kb": kb_mgr.state(),
     }
 
+
+def _resume_state() -> dict:
+    text, meta = load_resume()
+    if not text:
+        return {"loaded": False}
+    return {
+        "loaded": True,
+        "filename": meta.get("filename", "简历"),
+        "chars": len(text),
+        "uploaded_at": meta.get("uploaded_at", ""),
+        "preview": resume_mod.summarize_for_ui(text),
+    }
+
+
+# 模型开口演下一轮时最常见的开头，交给 API 端当停止符——比事后截断省钱也更稳。
+# Anthropic 的 stop_sequences / chat-completions 的 stop 支持它；Responses API 没有
+# 这个参数，那条通路只能靠 max_tokens 和下面的 _LEAK 兜。
+LEAK_STOPS = ['\nuser', '\n候选人：', '\nthinking', '\nassistant']
+
