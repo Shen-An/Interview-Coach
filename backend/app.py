@@ -228,3 +228,29 @@ _LEAK = re.compile(
     re.M | re.I,
 )
 
+
+def _sanitize_reply(reply: str) -> str:
+    """返回本轮面试官该说的话；整段都是泄漏时返回空串，由调用方决定重试。"""
+    cleaned = re.sub(r"^[ \t]*面试官[ \t]*[:：][ \t]*", "", reply.lstrip())
+    m = _LEAK.search(cleaned)
+    if m:
+        cleaned = cleaned[: m.start()]
+    return cleaned.strip()
+
+
+def _sanitize_report(md: str) -> str:
+    """复盘是长 Markdown，不能套用 _sanitize_reply 那种「见标签就截断」——报告里的
+    「原话回放」本来就要引用候选人的话。这里只剥掉正文前面混进来的思考块：
+    模板要求首行是 Markdown 标题，标题之前若命中泄漏特征，就从标题处对齐。"""
+    t = (md or "").strip()
+    h = re.search(r"^#{1,6} ", t, re.M)
+    if h and h.start() > 0 and _LEAK.search(t[: h.start()]):
+        t = t[h.start():]
+    return t.strip()
+
+
+def _report_is_complete(md: str) -> bool:
+    """推理模型把 max_tokens 花在思考上时会返回空正文或半截正文。
+    模板里「总分」和「改进」是必有项，缺了就说明这份报告不能存。"""
+    return bool(md) and "总分" in md and "改进" in md
+
