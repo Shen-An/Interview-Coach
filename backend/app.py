@@ -208,3 +208,23 @@ def _resume_state() -> dict:
 # 这个参数，那条通路只能靠 max_tokens 和下面的 _LEAK 兜。
 LEAK_STOPS = ['\nuser', '\n候选人：', '\nthinking', '\nassistant']
 
+
+# 模型偶尔不止说自己这一轮，而是把候选人的回答、自己的思考过程、甚至整段后续对话
+# 一口气演完（中转站上的弱指令遵循模型尤其容易）。这种文本一旦写回 messages，下一轮
+# 模型就照着这个"格式"接着演，越滚越长——所以必须在入库前截断，绝不能原样放行。
+#
+# 命中即从该处截断，只保留它前面那段（真正属于本轮面试官的话）：
+_LEAK = re.compile(
+    r"^[ \t>*#-]*(?:"
+    r"(?:user|assistant|human|system)[ \t]*[:：]"                  # user: / assistant：
+    r"|(?:候选人|应聘者|求职者|面试者|我|面试官)[ \t]*[:：]"          # 中文角色标签
+    r"|</?(?:thinking|thought|reasoning|analysis)[ \t>]"           # 思考块标签
+    r"|END[ \t]*[.。:：]"                                          # 模型自造的收尾标记
+    # user啊 / thin他 / thinking他 / th인好：拉丁词直接粘 CJK，是角色/思考标签的典型形态。
+    # 限定词表，避免误伤 "RAG的召回率" 这类正常写法。
+    r"|(?:user|assistant|human|thinking|think|thought|reasoning|analysis|end|th\w{0,2})"
+    r"(?=[　-鿿가-힯])"
+    r")",
+    re.M | re.I,
+)
+
