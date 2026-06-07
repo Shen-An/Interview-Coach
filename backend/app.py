@@ -276,3 +276,29 @@ def start_session(req: StartReq):
 
 
 @app.post("/api/session/{sid}/turn")
+def turn(sid: str, req: TurnReq):
+    s = _sessions.get(sid)
+    if not s:
+        raise HTTPException(404, "会话不存在或已结束")
+    text = req.text.strip()
+    if not text:
+        raise HTTPException(400, "空输入")
+    s["messages"].append({"role": "user", "content": text})
+    system = prompts.build_interviewer_system(s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"))
+    # 一轮面试官的话按提示词要求不超过 120 字，代码题题面也就几百字。给 8192 等于
+    # 递给模型一根足够长的绳子去自演整场对话——上限收紧本身就是最有效的一道闸。
+    for _ in range(2):
+        try:
+            reply = llm.chat(system, s["messages"], max_tokens=1200, stop=LEAK_STOPS)
+        except Exception as e:  # 网络/鉴权错误直接透传给前端提示
+            s["messages"].pop()
+            raise HTTPException(502, f"LLM 调用失败：{e}")
+        reply = _sanitize_reply(reply)   # 清洗后再入历史，免得脏内容污染后续轮次
+        if reply:
+            break
+    if not reply:                        # 两次都是整段泄漏，宁可报错也不把脏内容写进历史
+        s["messages"].pop()
+        raise HTTPException(502, "模型这一轮把两边的话都演完了，已丢弃。换个模型或重说一次。")
+    s["messages"].append({"role": "assistant", "content": reply})
+    return {"message": reply}
+
