@@ -254,3 +254,25 @@ def _report_is_complete(md: str) -> bool:
     模板里「总分」和「改进」是必有项，缺了就说明这份报告不能存。"""
     return bool(md) and "总分" in md and "改进" in md
 
+
+@app.post("/api/session/start")
+def start_session(req: StartReq):
+    ok, detail = llm.ready()
+    if not ok:
+        raise HTTPException(400, detail)
+    sid = uuid.uuid4().hex[:12]
+    resume_text, resume_meta = load_resume()
+    opening = OPENING_RESUME.format(round=req.round) if resume_text else OPENING.format(round=req.round)
+    _sessions[sid] = {
+        "round": req.round,
+        "style": req.style,
+        "level": req.level,
+        "resume": resume_text,
+        "resume_file": resume_meta.get("filename", ""),
+        "messages": [{"role": "assistant", "content": opening}],
+        "started_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    return {"session_id": sid, "message": opening, "with_resume": bool(resume_text)}
+
+
+@app.post("/api/session/{sid}/turn")
