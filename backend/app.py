@@ -330,3 +330,31 @@ def end_session(sid: str):
         report = llm.chat(system, [{"role": "user", "content": user_msg}], max_tokens=16000)
     except Exception as e:
         raise HTTPException(502, f"LLM 调用失败：{e}")
+
+    report = _sanitize_report(report)
+    if not _report_is_complete(report):
+        # 会话故意不销毁：报告是一次性产物，存了残次品就再也生不出来了。
+        # 保留现场让用户换个模型再点一次结束。
+        raise HTTPException(
+            502,
+            "模型没生成出完整的复盘（多半是推理额度被思考吃光，或中转站截断了）。"
+            "对话记录还在，换个模型再点一次「结束并复盘」即可。",
+        )
+
+    stamp = datetime.now().strftime("%Y-%m-%d-%H%M")
+    out = SESSIONS_DIR / f"{stamp}-{s['round']}.md"
+    out.write_text(
+        f"# 模拟面试记录 {stamp} · {s['round']}（{s['style']}风格）\n\n"
+        f"## 复盘报告\n\n{report}\n\n---\n\n## 对话全文\n\n{transcript}\n",
+        encoding="utf-8",
+    )
+    archive = {k: v for k, v in s.items() if k != "resume"}
+    archive["resume_used"] = bool(s.get("resume"))
+    (SESSIONS_DIR / f"{stamp}-{s['round']}.json").write_text(
+        json.dumps(archive, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    del _sessions[sid]
+    return {"report": report, "saved_to": str(out)}
+
+
+# ---- 历史记录：每场面完的复盘都在 sessions/，别浪费 ----
