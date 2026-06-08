@@ -358,3 +358,30 @@ def end_session(sid: str):
 
 
 # ---- 历史记录：每场面完的复盘都在 sessions/，别浪费 ----
+
+@app.get("/api/history")
+def history_list():
+    items = []
+    for j in sorted(SESSIONS_DIR.glob("*.json"), reverse=True):
+        try:
+            meta = json.loads(j.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        score = ""
+        md = j.with_suffix(".md")
+        if md.exists():
+            m = re.search(r"总分[^\d\n]{0,10}(\d{1,3})", md.read_text(encoding="utf-8")[:6000])
+            if m:
+                score = m.group(1)
+        items.append({
+            "id": j.stem,
+            "round": meta.get("round", ""),
+            "style": meta.get("style", ""),
+            "level": meta.get("level", ""),
+            "started_at": meta.get("started_at", ""),
+            "questions": sum(1 for x in meta.get("messages", []) if x.get("role") == "assistant"),
+            "score": score,
+            "resume_used": bool(meta.get("resume_used")),
+        })
+    return {"items": items}
+
