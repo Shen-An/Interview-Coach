@@ -302,3 +302,31 @@ def turn(sid: str, req: TurnReq):
     s["messages"].append({"role": "assistant", "content": reply})
     return {"message": reply}
 
+
+@app.post("/api/session/{sid}/end")
+def end_session(sid: str):
+    s = _sessions.get(sid)
+    if not s:
+        raise HTTPException(404, "会话不存在或已结束")
+    transcript = "\n\n".join(
+        f"{'面试官' if m['role'] == 'assistant' else '候选人'}：{m['content']}"
+        for m in s["messages"]
+    )
+    system = prompts.build_evaluator_system(s.get("resume", ""), s.get("level", "应届校招"))
+    user_msg = (
+        f"面试轮次：{s['round']}（{s['style']}风格），候选人身份："
+        f"{s.get('level', '应届校招')}，开始时间 {s['started_at']}。\n"
+        f"以下是完整面试记录：\n\n{transcript}\n\n"
+        # 收束指令放在 transcript「之后」：模型最近的上下文全是对白，指令只写在开头的话
+        # 它会顺着记录继续往下演面试——实测就是这么坏的，报告位置被写满了新编的问答。
+        "——面试记录到此结束，面试已经结束了。\n\n"
+        "现在停止扮演面试官，切换成复盘输出。直接从「# 模拟面试复盘」这一行开始写 Markdown，"
+        "严格按评分细则第三节的模板，必须包含「## 总分：XX / 100」和「## 最高优先级的 3 条改进」。"
+        "不要再生成任何一句面试官或候选人的对白——引用原话只能出现在「关键扣分点」里，且要加引号。"
+    )
+    try:
+        # 复盘正文一万多字足够，但推理模型的 reasoning 也从这个额度里扣——留出余量，
+        # 否则思考花光了就只剩空正文。max_tokens 是上限不是目标，放宽不影响短报告的速度。
+        report = llm.chat(system, [{"role": "user", "content": user_msg}], max_tokens=16000)
+    except Exception as e:
+        raise HTTPException(502, f"LLM 调用失败：{e}")
