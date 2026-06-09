@@ -406,3 +406,16 @@ def history_delete(hid: str):
     _history_path(hid, ".json").unlink(missing_ok=True)
     return {"ok": True}
 
+
+@app.get("/api/kb")
+def kb_state():
+    return kb_mgr.state()
+
+
+@app.get("/api/kb/latest")
+def kb_latest():
+    """最新一节增量情报，前端「查看情报」用。"""
+    return kb_mgr.latest_section()
+
+
+@app.post("/api/kb/refresh")
