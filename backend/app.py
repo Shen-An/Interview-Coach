@@ -385,3 +385,24 @@ def history_list():
         })
     return {"items": items}
 
+
+def _history_path(hid: str, suffix: str) -> Path:
+    if "/" in hid or "\\" in hid or ".." in hid:
+        raise HTTPException(400, "非法的记录 id")
+    return SESSIONS_DIR / f"{hid}{suffix}"
+
+
+@app.get("/api/history/{hid}")
+def history_get(hid: str):
+    md = _history_path(hid, ".md")
+    if not md.exists():
+        raise HTTPException(404, "记录不存在")
+    return {"id": hid, "md": md.read_text(encoding="utf-8")}
+
+
+@app.delete("/api/history/{hid}")
+def history_delete(hid: str):
+    _history_path(hid, ".md").unlink(missing_ok=True)
+    _history_path(hid, ".json").unlink(missing_ok=True)
+    return {"ok": True}
+
