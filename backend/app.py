@@ -419,3 +419,16 @@ def kb_latest():
 
 
 @app.post("/api/kb/refresh")
+def kb_refresh():
+    """应用内跑每日更新：用配置的 LLM 联网搜索近 3 天新面经并写入知识库。"""
+    ok, detail = llm.ready()
+    if not ok:
+        raise HTTPException(400, detail)
+    try:
+        result = kb_mgr.daily_research(llm)
+    except Exception as e:
+        raise HTTPException(502, f"每日更新失败：{e}")
+    return {**result, "kb": kb_mgr.state()}
+
+
+@app.post("/api/kb/import")
