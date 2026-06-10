@@ -432,3 +432,31 @@ def kb_refresh():
 
 
 @app.post("/api/kb/import")
+async def kb_import(file: UploadFile):
+    """导入日更面经文档，用当前配置的 LLM 蒸馏为增量情报。"""
+    ok, detail = llm.ready()
+    if not ok:
+        raise HTTPException(400, detail)
+    data = await file.read()
+    if len(data) > 20 * 1024 * 1024:
+        raise HTTPException(400, "文件太大（上限 20MB）")
+    name = (file.filename or "").lower()
+    if not name.endswith((".md", ".markdown", ".txt")):
+        raise HTTPException(400, "请导入 Markdown / TXT 格式的日更文档")
+    text = ""
+    for enc in ("utf-8", "gbk", "utf-16"):
+        try:
+            text = data.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    if not text.strip():
+        raise HTTPException(400, "文件内容为空或编码无法识别")
+    try:
+        result = kb_mgr.import_daily(llm, file.filename or "daily.md", text)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, f"蒸馏失败：{e}")
+    return {**result, "kb": kb_mgr.state()}
+
