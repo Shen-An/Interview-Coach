@@ -44,3 +44,19 @@ def extract(filename: str, data: bytes) -> str:
 
     if name.endswith(".doc"):
         raise ValueError("不支持旧版 .doc，请另存为 .docx 或导出 PDF")
+
+    if name.endswith((".txt", ".md", ".markdown")):
+        for enc in ("utf-8", "gbk", "utf-16"):
+            try:
+                return _clean(data.decode(enc))
+            except UnicodeDecodeError:
+                continue
+        raise ValueError("文本编码无法识别")
+
+    raise ValueError("仅支持 PDF / DOCX / TXT / MD 格式")
+
+
+def summarize_for_ui(text: str, limit: int = 180) -> str:
+    """返回给前端展示的开头片段。"""
+    one = re.sub(r"\s+", " ", text).strip()
+    return one[:limit] + ("…" if len(one) > limit else "")
