@@ -460,3 +460,25 @@ async def kb_import(file: UploadFile):
         raise HTTPException(502, f"蒸馏失败：{e}")
     return {**result, "kb": kb_mgr.state()}
 
+
+@app.post("/api/resume")
+async def upload_resume(file: UploadFile):
+    data = await file.read()
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(400, "文件太大（上限 10MB）")
+    try:
+        text = resume_mod.extract(file.filename or "", data)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    if len(text) < 50:
+        raise HTTPException(400, "提取到的文字太少，请确认简历内容或换个格式")
+    RESUME_PATH.write_text(text, encoding="utf-8")
+    RESUME_META.write_text(
+        json.dumps(
+            {"filename": file.filename, "uploaded_at": datetime.now().isoformat(timespec="seconds")},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    return _resume_state()
+
