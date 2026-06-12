@@ -482,3 +482,29 @@ async def upload_resume(file: UploadFile):
     )
     return _resume_state()
 
+
+@app.delete("/api/resume")
+def delete_resume():
+    RESUME_PATH.unlink(missing_ok=True)
+    RESUME_META.unlink(missing_ok=True)
+    return {"loaded": False}
+
+
+STYLE_TONE = {
+    "字节": "冷静、克制、语速偏快的男性技术面试官，语气专业带一点审视和压迫感，不热情，句尾干脆利落。",
+    "美团": "务实、平稳的男性技术面试官，语气像在讨论具体业务问题，偶尔加快追问节奏。",
+    "阿里/蚂蚁": "沉稳、有架构师气场的男性面试官，语速中等，语气笃定，关注体系和格局。",
+    "腾讯": "温和但严谨的男性技术面试官，语速平缓，像在做技术交流，但问题本身很锋利。",
+    "京东": "朴实直接的男性技术面试官，语速稍慢，问题一板一眼，注重基础。",
+}
+
+# Edge 免费云音没有语气指令，用韵律逼近各厂风格（rate/pitch 与前端本地通路同一套手感）
+STYLE_PROSODY = {
+    "字节": ("+12%", "-6Hz"),
+    "美团": ("+6%", "-3Hz"),
+    "阿里/蚂蚁": ("+0%", "-5Hz"),
+    "腾讯": ("+0%", "+0Hz"),
+    "京东": ("-4%", "-1Hz"),
+}
+EDGE_DEFAULT_VOICE = "zh-CN-YunxiNeural"  # 云希：年轻男声；云健/云扬更低沉
+
