@@ -528,3 +528,22 @@ def _tts_openai(text: str, style: str) -> bytes:
     resp = client.audio.speech.create(**kwargs)
     return resp.content if hasattr(resp, "content") else resp.read()
 
+
+async def _tts_edge(text: str, style: str) -> bytes:
+    import edge_tts
+
+    voice = os.getenv("TTS_VOICE", "")
+    if "Neural" not in voice:  # onyx 等 OpenAI 音色名对 Edge 无意义，换默认男声
+        voice = EDGE_DEFAULT_VOICE
+    rate, pitch = STYLE_PROSODY.get(style, ("+4%", "-3Hz"))
+    comm = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
+    buf = b""
+    async for chunk in comm.stream():
+        if chunk["type"] == "audio":
+            buf += chunk["data"]
+    if not buf:
+        raise RuntimeError("edge-tts 返回空音频")
+    return buf
+
+
+@app.post("/api/tts")
