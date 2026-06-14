@@ -547,3 +547,29 @@ async def _tts_edge(text: str, style: str) -> bytes:
 
 
 @app.post("/api/tts")
+async def tts(req: TTSReq):
+    """面试官语音合成，三级通路：配了 key 走 OpenAI 兼容 /audio/speech；
+    没配走微软 Edge 免费云音（云希男声）；两者都失败前端再降级系统本地语音。"""
+    import asyncio
+
+    text = req.text[:600]
+    has_key = bool(os.getenv("TTS_API_KEY") or os.getenv("OPENAI_API_KEY"))
+    try:
+        if has_key:
+            audio = await asyncio.to_thread(_tts_openai, text, req.style)
+        else:
+            audio = await _tts_edge(text, req.style)
+    except Exception as e:
+        if has_key:  # 付费通路挂了再试免费云音，别直接砸到机器人音
+            try:
+                audio = await _tts_edge(text, req.style)
+            except Exception:
+                raise HTTPException(502, f"语音合成失败：{e}")
+        else:
+            raise HTTPException(502, f"语音合成失败：{e}")
+    return Response(content=audio, media_type="audio/mpeg")
+
+
+# ---- 配置自检：设置界面的「保存并测试」按钮 ----
+
+@app.post("/api/test/llm")
