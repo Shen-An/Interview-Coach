@@ -508,3 +508,23 @@ STYLE_PROSODY = {
 }
 EDGE_DEFAULT_VOICE = "zh-CN-YunxiNeural"  # 云希：年轻男声；云健/云扬更低沉
 
+
+class TTSReq(BaseModel):
+    text: str
+    style: str = "字节"
+
+
+def _tts_openai(text: str, style: str) -> bytes:
+    key = os.getenv("TTS_API_KEY") or os.getenv("OPENAI_API_KEY")
+    from openai import OpenAI
+
+    client = OpenAI(api_key=key,
+                    base_url=os.getenv("TTS_BASE_URL") or os.getenv("OPENAI_BASE_URL") or None)
+    model = os.getenv("TTS_MODEL", "gpt-4o-mini-tts")
+    voice = os.getenv("TTS_VOICE", "onyx")
+    kwargs = dict(model=model, voice=voice, input=text, response_format="mp3")
+    if "4o-mini-tts" in model:  # 仅该系列支持语气指令
+        kwargs["instructions"] = STYLE_TONE.get(style, STYLE_TONE["字节"])
+    resp = client.audio.speech.create(**kwargs)
+    return resp.content if hasattr(resp, "content") else resp.read()
+
