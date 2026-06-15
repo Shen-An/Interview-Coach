@@ -592,3 +592,33 @@ def test_llm():
 
 
 @app.post("/api/test/stt")
+async def test_stt():
+    """转写链路自检：用 Edge 云音合成一句已知台词，喂给配置的转写接口，比对能否识别。
+    不用麦克风，全自动。"""
+    stt_key = os.getenv("STT_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if not stt_key:
+        return {"ok": False, "error": "还没填转写 Key（或 OpenAI Key）"}
+    try:
+        sample = await _tts_edge("模型测试，一二三。", "腾讯")
+    except Exception as e:
+        return {"ok": False, "error": f"生成测试音频失败（需要联网）：{e}"}
+    from openai import OpenAI
+
+    client = OpenAI(api_key=stt_key,
+                    base_url=os.getenv("STT_BASE_URL") or os.getenv("OPENAI_BASE_URL") or None)
+    model = os.getenv("STT_MODEL", "gpt-4o-mini-transcribe")
+    kwargs = {}
+    if any(t in model.lower() for t in ("whisper", "transcribe", "gpt")):
+        kwargs["language"] = "zh"
+    t0 = time.time()
+    try:
+        resp = client.audio.transcriptions.create(
+            model=model, file=("test.mp3", sample, "audio/mpeg"), **kwargs
+        )
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:500]}
+    text = (resp.text or "").strip()
+    if not text:
+        return {"ok": False, "error": "接口通了但没识别出内容，换个转写模型试试"}
+    return {"ok": True, "heard": text[:60], "ms": int((time.time() - t0) * 1000), "model": model}
+
