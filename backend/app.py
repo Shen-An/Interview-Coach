@@ -622,3 +622,34 @@ async def test_stt():
         return {"ok": False, "error": "接口通了但没识别出内容，换个转写模型试试"}
     return {"ok": True, "heard": text[:60], "ms": int((time.time() - t0) * 1000), "model": model}
 
+
+@app.post("/api/stt")
+async def stt(file: UploadFile):
+    """MediaRecorder 音频 -> OpenAI 转写 API（Electron 内 Web Speech API 不可用时的通路）。"""
+    stt_key = os.getenv("STT_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if not stt_key:
+        raise HTTPException(400, "语音转写需要在 .env 配置 STT_API_KEY（或 OPENAI_API_KEY）")
+    from openai import OpenAI
+
+    data = await file.read()
+    if len(data) < 800:
+        return {"text": ""}
+    client = OpenAI(api_key=stt_key,
+                    base_url=os.getenv("STT_BASE_URL") or os.getenv("OPENAI_BASE_URL") or None)
+    model = os.getenv("STT_MODEL", "gpt-4o-mini-transcribe")
+    kwargs = {}
+    # language 参数只有 OpenAI 系模型认；SenseVoice 等国产模型自动识别语种，传了反而可能 400
+    if any(t in model.lower() for t in ("whisper", "transcribe", "gpt")):
+        kwargs["language"] = "zh"
+    try:
+        resp = client.audio.transcriptions.create(
+            model=model,
+            file=(file.filename or "audio.webm", data, file.content_type or "audio/webm"),
+            **kwargs,
+        )
+    except Exception as e:
+        raise HTTPException(502, f"转写失败：{e}")
+    return {"text": resp.text}
+
+
+# ---- 语音转写后处理：用对话模型把识别错的术语修回来 ----
