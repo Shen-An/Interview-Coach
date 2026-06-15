@@ -573,3 +573,22 @@ async def tts(req: TTSReq):
 # ---- 配置自检：设置界面的「保存并测试」按钮 ----
 
 @app.post("/api/test/llm")
+def test_llm():
+    """对话模型连通性：发一句话，要一句话。"""
+    ok, detail = llm.ready()
+    if not ok:
+        return {"ok": False, "error": detail}
+    t0 = time.time()
+    try:
+        reply = llm.chat(
+            "你是技术面试官。",
+            [{"role": "user", "content": "配置连通性测试：用一句话确认你已就绪，15 字以内。"}],
+            max_tokens=2048,
+        )
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:500]}
+    return {"ok": True, "reply": reply.strip()[:80], "ms": int((time.time() - t0) * 1000),
+            "detail": detail}
+
+
+@app.post("/api/test/stt")
