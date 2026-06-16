@@ -684,3 +684,15 @@ def rewrite(req: RewriteReq):
     if not out or len(out) > max(120, len(text) * 2):
         return {"text": text, "changed": False}
     return {"text": out, "changed": out != text, "original": text}
+
+
+# ---- 静态前端 ----
+FRONTEND = RES_DIR / "frontend"
+
+
+@app.get("/")
+def index():
+    return FileResponse(FRONTEND / "index.html")
+
+
+app.mount("/static", StaticFiles(directory=FRONTEND), name="static")
