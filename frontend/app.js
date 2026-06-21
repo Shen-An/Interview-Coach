@@ -17,3 +17,34 @@ const DIMS = {
 };
 
 const app = createApp({
+  data() {
+    return {
+      locale: ZH_CN,
+      cfg: { ready: false, detail: "检查中…" },
+      isElectron: IS_ELECTRON,
+      theme: (() => {
+        try { return localStorage.getItem("ic-theme") === "dark" ? "dark" : "light"; } catch { return "light"; }
+      })(),
+      page: (() => {
+        const m = location.hash.match(/^#\/([a-z]+)/);
+        const p = m && m[1];
+        return ["prep", "interview", "intel", "records", "report"].includes(p) ? p : "prep";
+      })(),
+      showSettings: false,
+      savingSettings: false,
+      saveMsg: "",
+      saveOk: false,
+      st: {},
+      testing: { llm: false, stt: false, tts: false },
+      testMsg: { llm: "", stt: "", tts: "" },
+      testOk: { llm: false, stt: false, tts: false },
+      resume: { loaded: false },
+      uploading: false,
+      kb: { files: [], latest_update: "" },
+      kbBusy: false,
+      history: [],
+      showHistory: false,
+      historyTitle: "",
+      historyHtml: "",
+      intelTitle: "",
+      intelHtml: "",
