@@ -24,3 +24,27 @@
   --signal-lo: #1B8B96;
   --signal-wash: rgba(36, 181, 196, .12);
   --on-signal: #04171A;
+
+  /* 字标用的中性灰，刻意不带色相 */
+  --brand-ink:     #E4E6E6;
+  --brand-ink-dim: #9AA0A1;
+
+  /* 语义色，与强调色分开 */
+  --ok:   #4FB37C;
+  --warn: #DBA24B;
+  --bad:  #DF6663;
+
+  --font-body: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+  /* 等宽栈里必须带中文回退：Consolas 没有中文字形，缺了这层中文会掉进宋体 */
+  --font-mono: "Cascadia Mono", Consolas, "SF Mono", ui-monospace, "Microsoft YaHei", "PingFang SC", monospace;
+  --font-display: Georgia, "Iowan Old Style", "Times New Roman", serif;
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+
+  --side-w: 224px;
+  --stage-w: 1080px;
+}
+
+/* ---------- Element Plus 变量改写（我们始终跑在 html.dark 下） ---------- */
