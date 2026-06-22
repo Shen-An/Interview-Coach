@@ -18,3 +18,17 @@
 <div class="shell">
 
   <!-- ═════════ 左侧导航 ═════════ -->
+  <aside class="side">
+    <div class="side-brand" @click="nav('prep')">
+      <span class="brand-glyph">IC</span>
+      <span class="brand-text">
+        <b>Interview Coach</b>
+        <i>AI 模拟面试</i>
+      </span>
+    </div>
+
+    <nav class="side-nav">
+      <button :class="['nav-item', { on: page === 'prep' }]" @click="nav('prep')">
+        <el-icon><icon-monitor></icon-monitor></el-icon>
+        <span class="nav-label">工作台</span>
+      </button>
