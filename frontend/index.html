@@ -32,3 +32,18 @@
         <el-icon><icon-monitor></icon-monitor></el-icon>
         <span class="nav-label">工作台</span>
       </button>
+      <button :class="['nav-item', { on: page === 'interview' }]" @click="nav('interview')">
+        <el-icon><icon-chat-dot-round></icon-chat-dot-round></el-icon>
+        <span class="nav-label">模拟面试</span>
+        <span v-if="sessionId" class="nav-badge live mono">{{ elapsed }}</span>
+      </button>
+      <button :class="['nav-item', { on: page === 'intel' }]" @click="nav('intel')">
+        <el-icon><icon-collection></icon-collection></el-icon>
+        <span class="nav-label">情报库</span>
+        <i v-if="kbStale" class="nav-dot" title="今天还没更新"></i>
+      </button>
+      <button :class="['nav-item', { on: page === 'records' }]" @click="nav('records')">
+        <el-icon><icon-folder-opened></icon-folder-opened></el-icon>
+        <span class="nav-label">面试记录</span>
+        <span v-if="history.length" class="nav-badge mono">{{ history.length }}</span>
+      </button>
