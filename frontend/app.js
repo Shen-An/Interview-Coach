@@ -79,3 +79,24 @@ const app = createApp({
       mics: [],                       // 可选的音频输入设备
       micId: localStorage.getItem("ic_mic") || "",
       micTest: { on: false, peak: 0, msg: "" },
+      meterBars: [0.16, 0.16, 0.16, 0.16, 0.16],
+      meterLive: false, // true = 真实电平（有音频流时），false = 呼吸动画
+      _rec: null,
+      _media: null,
+      _chunks: [],
+      _timer: null,
+      _voice: null,
+      _raf: null,
+      _actx: null,
+    };
+  },
+
+  computed: {
+    kbStale() {
+      const today = new Date().toISOString().slice(0, 10);
+      return !(this.kb.latest_update || "").includes(today);
+    },
+    questionCount() {
+      return this.messages.filter((m) => m.role === "assistant").length;
+    },
+    /* ---- 复盘档案：首页最近 3 场 + 抽屉全量筛选 ---- */
