@@ -48,3 +48,27 @@
 }
 
 /* ---------- Element Plus 变量改写（我们始终跑在 html.dark 下） ---------- */
+html.dark {
+  --el-color-primary: #24B5C4;
+  --el-color-primary-light-3: #1B8B96;
+  --el-color-primary-light-5: #176B74;
+  --el-color-primary-light-7: #124F56;
+  --el-color-primary-light-8: #0F4249;
+  --el-color-primary-light-9: #0C343A;
+  --el-color-primary-dark-2: #57DBE6;
+
+  --el-color-success: #4FB37C;
+  --el-color-success-light-3: #3B8560;
+  --el-color-success-light-9: #14261C;
+  --el-color-warning: #DBA24B;
+  --el-color-warning-light-3: #A47838;
+  --el-color-warning-light-9: #2C2213;
+  --el-color-danger: #DF6663;
+  --el-color-danger-light-3: #A64B49;
+  --el-color-danger-light-9: #2C1717;
+  --el-color-error: #DF6663;
+  --el-color-error-light-3: #A64B49;
+  --el-color-error-light-9: #2C1717;
+  --el-color-info: #8A9CA4;
+  --el-color-info-light-3: #67757B;
+  --el-color-info-light-9: #1B2225;
