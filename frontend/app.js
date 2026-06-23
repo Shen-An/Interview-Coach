@@ -100,3 +100,21 @@ const app = createApp({
       return this.messages.filter((m) => m.role === "assistant").length;
     },
     /* ---- 复盘档案：首页最近 3 场 + 抽屉全量筛选 ---- */
+    recentHistory() {
+      return this.history.slice(0, 3);
+    },
+    filteredHistory() {
+      const q = this.archFilter.trim();
+      if (!q) return this.history;
+      return this.history.filter((h) =>
+        `${h.round} ${h.style} ${h.level} ${h.started_at} ${h.score}`.includes(q)
+      );
+    },
+    bestScore() {
+      const scored = this.history.filter((h) => h.score).map((h) => Number(h.score));
+      return scored.length ? Math.max(...scored) : "";
+    },
+    kbChars() {
+      const n = (this.kb.files || []).reduce((s, f) => s + (f.chars || 0), 0);
+      return n >= 10000 ? (n / 10000).toFixed(1) + " 万" : String(n);
+    },
