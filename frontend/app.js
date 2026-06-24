@@ -118,3 +118,16 @@ const app = createApp({
       const n = (this.kb.files || []).reduce((s, f) => s + (f.chars || 0), 0);
       return n >= 10000 ? (n / 10000).toFixed(1) + " 万" : String(n);
     },
+    avgScore() {
+      const scored = this.history.filter((h) => h.score).slice(0, 5);
+      if (!scored.length) return "";
+      return Math.round(scored.reduce((s, h) => s + Number(h.score), 0) / scored.length);
+    },
+
+    sttHint() {
+      return this.isElectron
+        ? "exe 版需要在「设置 → 语音转写」里填一个 whisper 兼容接口的 key，填完保存即可生效。"
+        : "浏览器内置语音识别只在 Edge / Chrome 里可用，换个浏览器就行。也可以直接打字回答。";
+    },
+
+    /* ---- 复盘评分卡：从正文里解析真实分数 ---- */
