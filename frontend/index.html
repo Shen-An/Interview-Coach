@@ -47,3 +47,32 @@
         <span class="nav-label">面试记录</span>
         <span v-if="history.length" class="nav-badge mono">{{ history.length }}</span>
       </button>
+      <button v-if="report" :class="['nav-item', { on: page === 'report' }]" @click="nav('report')">
+        <el-icon><icon-data-analysis></icon-data-analysis></el-icon>
+        <span class="nav-label">本场复盘</span>
+      </button>
+    </nav>
+
+    <div class="side-foot">
+      <el-tooltip :content="cfg.ready ? cfg.detail : '还没配置模型，点齿轮进设置'" placement="right">
+        <div class="side-model" @click="openSettings">
+          <i :class="['dot', cfg.ready ? 'ok' : 'bad']"></i>
+          <span class="side-model-name mono">{{ cfg.ready ? (cfg.model || cfg.provider) : '未配置模型' }}</span>
+        </div>
+      </el-tooltip>
+      <div class="side-acts">
+        <el-tooltip :content="theme === 'dark' ? '切到日间' : '切到夜间'" placement="right">
+          <button class="side-act" @click="toggleTheme">
+            <el-icon><icon-sunny v-if="theme === 'dark'"></icon-sunny><icon-moon v-else></icon-moon></el-icon>
+          </button>
+        </el-tooltip>
+        <el-tooltip content="设置" placement="right">
+          <button class="side-act" @click="openSettings">
+            <el-icon><icon-setting></icon-setting></el-icon>
+          </button>
+        </el-tooltip>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═════════ 主区 ═════════ -->
