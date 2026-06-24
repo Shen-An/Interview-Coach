@@ -76,3 +76,16 @@
   </aside>
 
   <!-- ═════════ 主区 ═════════ -->
+  <div class="stage">
+
+    <!-- ───────── 工作台 ───────── -->
+    <main v-if="page === 'prep'" class="panel pg workbench">
+      <el-alert v-if="!cfg.ready" type="warning" :closable="false" show-icon class="gap-b"
+                title="还没配置对话模型">
+        <template #default>
+          <span>{{ cfg.detail }}——填一个 API key 就能开始。</span>
+          <el-button link type="warning" class="inline-link" @click="openSettings">打开设置</el-button>
+        </template>
+      </el-alert>
+
+      <!-- 开始面试 -->
