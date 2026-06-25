@@ -102,3 +102,32 @@ html.dark {
   --el-border-radius-base: var(--r-sm);
   --el-font-size-base: 14px;
 }
+
+/* ---------- 日间主题「面试室白昼」：纸面白 + 深一档的信号青 ---------- */
+html.light {
+  --ink-1000: #EDF1F2;   /* 页面底 */
+  --ink-950:  #F4F7F8;   /* 输入井 */
+  --ink-900:  #FFFFFF;   /* 卡片 */
+  --ink-800:  #E8EEF0;   /* 填充 */
+  --ink-700:  #DAE3E6;
+  --line:      #C6D4D9;
+  --line-soft: #DCE5E8;
+
+  --text:      #16262C;
+  --text-dim:  #4E646D;
+  --text-faint:#7C919A;
+
+  /* 白底上的青要深一档才有对比度 */
+  --signal:    #0E93A3;
+  --signal-hi: #0A727F;
+  --signal-lo: #3FB5C2;
+  --signal-wash: rgba(14, 147, 163, .09);
+  --on-signal: #FFFFFF;
+
+  --brand-ink:     #4A4E4F;
+  --brand-ink-dim: #868C8D;
+
+  --ok:   #2E8F5B;
+  --warn: #A97625;
+  --bad:  #C94F4C;
+}
