@@ -131,3 +131,34 @@ const app = createApp({
     },
 
     /* ---- 复盘评分卡：从正文里解析真实分数 ---- */
+    parsed() {
+      const md = this.report || "";
+      const dims = [];
+      const re = /^\|\s*([A-E])[\s、.．·]*([^|]*?)\s*\|\s*([^|]*?)\s*\|/gm;
+      let m;
+      while ((m = re.exec(md))) {
+        const key = m[1];
+        const meta = DIMS[key];
+        if (!meta) continue;
+        const cell = m[3];
+        const pair = cell.match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+)/);
+        const lone = cell.match(/(\d+(?:\.\d+)?)/);
+        if (!pair && !lone) continue;
+        const score = parseFloat(pair ? pair[1] : lone[1]);
+        const max = pair ? parseInt(pair[2], 10) || meta.max : meta.max;
+        if (!isFinite(score)) continue;
+        dims.push({
+          key,
+          name: (m[2] || meta.name).trim() || meta.name,
+          score,
+          max,
+          pct: Math.max(0, Math.min(100, Math.round((score / max) * 100))),
+        });
+      }
+      const totalM = md.match(/总分[^\d\n]{0,10}(\d{1,3})/);
+      const total = totalM
+        ? parseInt(totalM[1], 10)
+        : dims.length
+        ? Math.round(dims.reduce((s, d) => s + d.score, 0))
+        : 0;
+      // 先认「→」——模板里等级就跟在箭头后面；退化路径要去掉前面的分数片段
