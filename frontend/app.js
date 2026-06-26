@@ -162,3 +162,33 @@ const app = createApp({
         ? Math.round(dims.reduce((s, d) => s + d.score, 0))
         : 0;
       // 先认「→」——模板里等级就跟在箭头后面；退化路径要去掉前面的分数片段
+      let g = "";
+      const arrowM = md.match(/总分[^\n]*?(?:→|->|=>)\s*([^\n]+)/);
+      if (arrowM) {
+        g = arrowM[1];
+      } else {
+        const colonM = md.match(/总分[^\n]*?[:：]\s*([^\n]+)/);
+        if (colonM) g = colonM[1].replace(/^\s*\d{1,3}\s*\/\s*\d{1,3}\s*/, "");
+      }
+      g = g.replace(/[*`#]/g, "").trim();
+      // 「SP —— 工程化思维成型，需带教」拆开：等级才是该放大的那半，判词是注解
+      const parts = g.split(/\s*(?:——|—|--|–)\s*/);
+      return {
+        dims,
+        total: Math.max(0, Math.min(100, total)),
+        grade: (parts[0] || "").trim(),
+        gradeNote: parts.slice(1).join(" ").trim(),
+      };
+    },
+    scores() {
+      return this.parsed.dims.length >= 3 ? this.parsed.dims : [];
+    },
+    totalScore() {
+      return this.parsed.total;
+    },
+    totalPct() {
+      return this.parsed.total;
+    },
+    grade() {
+      return this.parsed.grade;
+    },
