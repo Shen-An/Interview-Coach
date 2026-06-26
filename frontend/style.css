@@ -131,3 +131,18 @@ html.light {
   --warn: #A97625;
   --bad:  #C94F4C;
 }
+
+/* Element Plus 亮色主题只需改品牌色系，其余用官方默认 */
+html.light {
+  --el-color-primary: #0E93A3;
+  --el-color-primary-light-3: #4FB3BF;
+  --el-color-primary-light-5: #86CBD3;
+  --el-color-primary-light-7: #B7E1E6;
+  --el-color-primary-light-8: #CFEBEE;
+  --el-color-primary-light-9: #E7F5F7;
+  --el-color-primary-dark-2: #0A727F;
+
+  --el-color-success: #2E8F5B;
+  --el-color-warning: #A97625;
+  --el-color-danger: #C94F4C;
+  --el-color-error: #C94F4C;
