@@ -89,3 +89,24 @@
       </el-alert>
 
       <!-- 开始面试 -->
+      <section class="hero-card">
+        <div class="hero-main">
+          <h1>开始一场模拟面试</h1>
+          <p class="hero-sub">{{ resume.loaded ? '面试官会照着《' + resume.filename + '》逐条深挖' : '没传简历也能面，面试官会让你先讲项目' }}</p>
+          <div class="hero-chips">
+            <el-tag size="small" effect="plain" round>{{ round }}</el-tag>
+            <el-tag size="small" effect="plain" round>{{ style }}风格</el-tag>
+            <el-tag size="small" effect="plain" round>{{ level }}</el-tag>
+            <el-tag v-if="resume.loaded" size="small" type="success" effect="plain" round>已带简历</el-tag>
+            <el-tag v-if="ttsOn" size="small" effect="plain" round>语音朗读</el-tag>
+          </div>
+        </div>
+        <div class="hero-cta">
+          <el-button type="primary" size="large" class="start-btn"
+                     :disabled="!cfg.ready" :loading="busy" @click="startInterview">
+            <el-icon v-if="!busy" class="cta-ico"><icon-video-play></icon-video-play></el-icon>
+            开始面试
+          </el-button>
+          <span v-if="sessionId" class="hero-resume-note">有一场进行中（{{ elapsed }}），点左侧「模拟面试」回去</span>
+        </div>
+      </section>
