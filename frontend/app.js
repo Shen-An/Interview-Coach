@@ -192,3 +192,28 @@ const app = createApp({
     grade() {
       return this.parsed.grade;
     },
+    gradeNote() {
+      return this.parsed.gradeNote;
+    },
+    // 阈值直接照抄评分细则的等级线，所以配色不会和判词打架
+    gradeColor() {
+      const t = this.totalScore;
+      if (t >= 85) return "#4FB37C";
+      if (t >= 70) return "#24B5C4";
+      if (t >= 55) return "#DBA24B";
+      return "#DF6663";
+    },
+    reportHtml() {
+      if (!this.report) return "";
+      // 评分卡已经把总分和五维表提到上面了，正文里就不再重复一遍
+      const md = this.scores.length ? this.stripScoreBlock(this.report) : this.report;
+      return marked.parse(md);
+    },
+  },
+
+  async mounted() {
+    try {
+      this.cfg = await (await fetch("/api/config")).json();
+    } catch {
+      this.cfg = { ready: false, detail: "后端未启动" };
+    }
