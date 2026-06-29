@@ -217,3 +217,30 @@ const app = createApp({
     } catch {
       this.cfg = { ready: false, detail: "后端未启动" };
     }
+    // STT 可用性：浏览器有 Web Speech API 即可；Electron 需配置转写 API key
+    this.sttAvailable = SR ? true : !!(this.cfg.stt_api_ready && navigator.mediaDevices);
+    if (this.cfg.resume) this.resume = this.cfg.resume;
+    if (this.cfg.kb) this.kb = this.cfg.kb;
+    if (!this.cfg.ready) this.openSettings();
+    this.loadHistory();
+    this.loadIntelLatest();
+    // hash 路由：前进后退/刷新都能落回原页面
+    if (!location.hash) history.replaceState(null, "", "#/" + this.page);
+    window.addEventListener("hashchange", () => {
+      const m = location.hash.match(/^#\/([a-z]+)/);
+      const p = m && m[1];
+      if (["prep", "interview", "intel", "records", "report"].includes(p)) this.page = p;
+    });
+    // 选中文语音（voices 异步加载）
+    const pick = () => {
+      const vs = speechSynthesis.getVoices();
+      // 面试官是冷面男声：男声优先（云希/云扬/云健/康康），再退任意中文音
+      this._voice =
+        vs.find((v) => v.lang === "zh-CN" && /Yunxi|Yunyang|Yunjian|Kangkang/i.test(v.name)) ||
+        vs.find((v) => v.lang === "zh-CN" && !/Xiaoxiao|Xiaoyi|Huihui|Yaoyao/i.test(v.name)) ||
+        vs.find((v) => v.lang === "zh-CN") ||
+        null;
+    };
+    pick();
+    speechSynthesis.onvoiceschanged = pick;
+  },
