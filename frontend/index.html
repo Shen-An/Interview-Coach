@@ -128,3 +128,19 @@
               <div class="dz-title">{{ uploading ? '解析中…' : '把简历拖到这里，或点击选择' }}</div>
               <div class="dz-sub">PDF · DOCX · TXT · Markdown　只存在本机，不上传第三方</div>
             </el-upload>
+
+            <div v-else class="loaded">
+              <div class="loaded-top">
+                <el-icon class="ok-icon"><icon-document-checked></icon-document-checked></el-icon>
+                <span class="loaded-name">{{ resume.filename }}</span>
+                <span class="mono dim">{{ resume.chars }} 字</span>
+                <div class="spacer"></div>
+                <el-upload class="inline-upload" :auto-upload="false" :show-file-list="false"
+                           accept=".pdf,.docx,.txt,.md,.markdown" @change="onResumePick">
+                  <el-button link size="small">换一份</el-button>
+                </el-upload>
+                <el-button link size="small" type="danger" @click="deleteResume">移除</el-button>
+              </div>
+              <p class="loaded-preview">{{ resume.preview }}</p>
+            </div>
+          </section>
