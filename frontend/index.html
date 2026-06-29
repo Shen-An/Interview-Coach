@@ -110,3 +110,21 @@
           <span v-if="sessionId" class="hero-resume-note">有一场进行中（{{ elapsed }}），点左侧「模拟面试」回去</span>
         </div>
       </section>
+
+      <div class="wb-grid">
+        <div class="wb-main">
+          <!-- 简历 -->
+          <section class="card">
+            <div class="card-head">
+              <span class="eyebrow">RESUME</span>
+              <h2>简历</h2>
+              <span class="card-note">传了简历，面试官就照着它逐条深挖，而不是泛泛问概念</span>
+            </div>
+
+            <el-upload v-if="!resume.loaded" drag class="dropzone" :auto-upload="false" :show-file-list="false"
+                       accept=".pdf,.docx,.txt,.md,.markdown" :disabled="uploading"
+                       @change="onResumePick">
+              <el-icon class="dz-icon"><icon-upload-filled></icon-upload-filled></el-icon>
+              <div class="dz-title">{{ uploading ? '解析中…' : '把简历拖到这里，或点击选择' }}</div>
+              <div class="dz-sub">PDF · DOCX · TXT · Markdown　只存在本机，不上传第三方</div>
+            </el-upload>
