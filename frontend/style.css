@@ -146,3 +146,30 @@ html.light {
   --el-color-warning: #A97625;
   --el-color-danger: #C94F4C;
   --el-color-error: #C94F4C;
+
+  --el-bg-color: #FFFFFF;
+  --el-bg-color-page: var(--ink-1000);
+  --el-bg-color-overlay: #FFFFFF;
+  --el-text-color-primary: var(--text);
+  --el-text-color-regular: #33474F;
+  --el-text-color-secondary: var(--text-dim);
+  --el-text-color-placeholder: var(--text-faint);
+  --el-border-color: var(--line);
+  --el-border-color-light: var(--line);
+  --el-border-color-lighter: var(--line-soft);
+  --el-border-color-extra-light: var(--line-soft);
+  --el-fill-color: var(--ink-800);
+  --el-fill-color-light: var(--ink-950);
+  --el-fill-color-lighter: var(--ink-950);
+  --el-fill-color-blank: #FFFFFF;
+  --el-font-family: var(--font-body);
+  --el-border-radius-base: var(--r-sm);
+  --el-font-size-base: 14px;
+}
+
+html.light body {
+  /* 日间顶上那盏灯换成更浅的一层 */
+  background-image: radial-gradient(120% 70% at 50% -10%, rgba(14, 147, 163, .06), transparent 60%);
+}
+
+/* 亮青填充上放墨色字，白字在这个亮度上对比度不够 */
