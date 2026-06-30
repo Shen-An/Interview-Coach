@@ -244,3 +244,23 @@ const app = createApp({
     pick();
     speechSynthesis.onvoiceschanged = pick;
   },
+
+  methods: {
+    /* ---------- 页面导航 ---------- */
+    nav(p) {
+      this.page = p;
+      const h = "#/" + p;
+      if (location.hash !== h) location.hash = h;
+    },
+
+    /* ---------- 主题 / 本机文件 ---------- */
+    toggleTheme() {
+      this.theme = this.theme === "dark" ? "light" : "dark";
+      document.documentElement.className = this.theme;
+      try { localStorage.setItem("ic-theme", this.theme); } catch {}
+    },
+    icOpen(what) {
+      if (window.ic && window.ic.open) window.ic.open(what);
+    },
+
+    /* ---------- 简历 ---------- */
