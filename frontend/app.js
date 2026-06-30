@@ -264,3 +264,34 @@ const app = createApp({
     },
 
     /* ---------- 简历 ---------- */
+    onResumePick(uploadFile) {
+      const f = uploadFile && uploadFile.raw;
+      if (f) this.uploadResume(f);
+    },
+    async uploadResume(f) {
+      if (!f) return;
+      this.uploading = true;
+      try {
+        const fd = new FormData();
+        fd.append("file", f, f.name);
+        const r = await fetch("/api/resume", { method: "POST", body: fd });
+        if (!r.ok) throw new Error((await r.json()).detail);
+        this.resume = await r.json();
+        ElMessage.success(`已读入《${this.resume.filename}》，面试官会照着它问`);
+      } catch (e) {
+        ElMessage.error("简历解析失败：" + e.message);
+      } finally {
+        this.uploading = false;
+      }
+    },
+    async deleteResume() {
+      try {
+        await ElMessageBox.confirm("移除后面试官会改成让你口头介绍项目。", "移除简历？", {
+          confirmButtonText: "移除",
+          cancelButtonText: "留着",
+          type: "warning",
+        });
+      } catch {
+        return;
+      }
+      try {
