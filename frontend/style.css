@@ -173,3 +173,32 @@ html.light body {
 }
 
 /* 亮青填充上放墨色字，白字在这个亮度上对比度不够 */
+html.dark .el-button--primary {
+  --el-button-text-color: var(--on-signal);
+  --el-button-hover-text-color: var(--on-signal);
+  --el-button-active-text-color: var(--on-signal);
+  --el-button-hover-bg-color: var(--signal-hi);
+  --el-button-hover-border-color: var(--signal-hi);
+  font-weight: 600;
+}
+
+/* ============================================================
+   外壳
+   ============================================================ */
+* { box-sizing: border-box; margin: 0; }
+[v-cloak] { display: none; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  background: var(--ink-1000);
+  color: var(--text);
+  overflow: hidden;
+  /* 顶部一层极淡的青，像屋里那盏灯 */
+  background-image: radial-gradient(120% 70% at 50% -10%, rgba(36, 181, 196, .07), transparent 60%);
+}
+
+#app { height: 100vh; min-height: 0; }
+#app > .el-config-provider { height: 100%; min-height: 0; }
