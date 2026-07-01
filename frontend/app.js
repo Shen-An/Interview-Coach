@@ -295,3 +295,10 @@ const app = createApp({
         return;
       }
       try {
+        await fetch("/api/resume", { method: "DELETE" });
+        this.resume = { loaded: false };
+        ElMessage.success("已移除");
+      } catch (e) {
+        ElMessage.error("移除失败：" + e.message);
+      }
+    },
