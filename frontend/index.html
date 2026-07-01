@@ -144,3 +144,35 @@
               <p class="loaded-preview">{{ resume.preview }}</p>
             </div>
           </section>
+
+          <!-- 配置 -->
+          <section class="card">
+            <div class="card-head">
+              <span class="eyebrow">SETUP</span>
+              <h2>这场怎么面</h2>
+            </div>
+            <div class="field">
+              <label>你的身份<em>决定她拿什么标准压你</em></label>
+              <el-segmented v-model="level" :options="levels" block></el-segmented>
+            </div>
+            <div class="field-pair">
+              <div class="field">
+                <label>轮次</label>
+                <el-segmented v-model="round" :options="rounds" block></el-segmented>
+              </div>
+              <div class="field">
+                <label>压力风格</label>
+                <el-segmented v-model="style" :options="styles" block></el-segmented>
+              </div>
+            </div>
+            <el-divider></el-divider>
+            <div class="toggle-row">
+              <div class="toggle">
+                <el-switch v-model="ttsOn"></el-switch>
+                <span>面试官朗读题目</span>
+              </div>
+              <div class="toggle">
+                <el-tag :type="sttAvailable ? 'success' : 'danger'" effect="plain" size="small" round>
+                  {{ sttAvailable ? '语音作答可用' : '语音作答不可用' }}
+                </el-tag>
+                <span v-if="sttAvailable" class="dim small">点麦克风说话，停止后自动发送</span>
