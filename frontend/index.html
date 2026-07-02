@@ -176,3 +176,26 @@
                   {{ sttAvailable ? '语音作答可用' : '语音作答不可用' }}
                 </el-tag>
                 <span v-if="sttAvailable" class="dim small">点麦克风说话，停止后自动发送</span>
+                <el-tooltip v-else :content="sttHint" placement="top">
+                  <span class="small why">为什么不可用？</span>
+                </el-tooltip>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="wb-side">
+          <!-- 情报库速览 -->
+          <section class="card mini-card" @click="nav('intel')">
+            <div class="mini-head">
+              <el-icon class="mini-ico"><icon-collection></icon-collection></el-icon>
+              <b>情报库</b>
+              <el-icon class="mini-go"><icon-arrow-right></icon-arrow-right></el-icon>
+            </div>
+            <div class="mini-body">
+              <el-tag v-if="kb.latest_update && !kbStale" type="success" effect="plain" size="small" round>今日已更新</el-tag>
+              <el-tag v-else-if="kb.latest_update" type="warning" effect="plain" size="small" round>有待更新</el-tag>
+              <el-tag v-else type="info" effect="plain" size="small" round>暂无增量情报</el-tag>
+              <p class="mini-note">{{ kb.latest_update || '只用内置题库，去情报库联网搜今日面经' }}</p>
+            </div>
+          </section>
