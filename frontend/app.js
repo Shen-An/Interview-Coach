@@ -302,3 +302,35 @@ const app = createApp({
         ElMessage.error("移除失败：" + e.message);
       }
     },
+
+    /* ---------- 设置 ---------- */
+    async openSettings() {
+      try {
+        this.st = await (await fetch("/api/settings")).json();
+      } catch {
+        this.st = { LLM_PROVIDER: "anthropic" };
+      }
+      if (!this.st.LLM_PROVIDER) this.st.LLM_PROVIDER = "anthropic";
+      if (!this.st.STT_REWRITE) this.st.STT_REWRITE = "on";   // .env 里没写过就是默认开
+      this.saveMsg = "";
+      this.micTest.msg = "";
+      this.showSettings = true;
+      this.loadMics();          // 设备列表要授权后才有标签，进设置时拉一次
+    },
+    async saveSettings() {
+      this.savingSettings = true;
+      this.saveMsg = "";
+      try {
+        const r = await fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ values: this.st }),
+        });
+        if (!r.ok) throw new Error((await r.json()).detail);
+        const d = await r.json();
+        this.cfg = await (await fetch("/api/config")).json();
+        this.sttAvailable = SR ? true : !!(d.stt_api_ready && navigator.mediaDevices);
+        this.saveOk = !!d.ready;
+        this.saveMsg = d.ready ? "已生效" : d.detail;
+        this._cloudTtsDead = false; // 配置变了，云端 TTS 重新给机会
+        if (d.ready) {
