@@ -218,3 +218,22 @@ body {
   text-transform: uppercase;
   color: #6E838B;
 }
+
+/* ---------- 侧边导航 ---------- */
+.side {
+  flex: none; width: var(--side-w);
+  display: flex; flex-direction: column;
+  background: var(--ink-950);
+  border-right: 1px solid var(--line-soft);
+  padding: 14px 10px 12px;
+}
+.side-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 8px 14px; cursor: pointer;
+}
+.brand-glyph {
+  flex: none; width: 34px; height: 34px; display: grid; place-items: center;
+  font-family: var(--font-display); font-size: 1rem; letter-spacing: .02em;
+  color: var(--signal); background: var(--signal-wash);
+  border: 1px solid rgba(36, 181, 196, .3); border-radius: 9px;
+}
