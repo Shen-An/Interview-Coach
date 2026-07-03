@@ -334,3 +334,13 @@ const app = createApp({
         this.saveMsg = d.ready ? "已生效" : d.detail;
         this._cloudTtsDead = false; // 配置变了，云端 TTS 重新给机会
         if (d.ready) {
+          ElMessage.success("模型已就绪：" + (this.cfg.model || this.cfg.provider));
+          setTimeout(() => (this.showSettings = false), 500);
+        }
+      } catch (e) {
+        this.saveOk = false;
+        this.saveMsg = "保存失败：" + e.message;
+      } finally {
+        this.savingSettings = false;
+      }
+    },
