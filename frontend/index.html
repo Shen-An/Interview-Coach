@@ -199,3 +199,23 @@
               <p class="mini-note">{{ kb.latest_update || '只用内置题库，去情报库联网搜今日面经' }}</p>
             </div>
           </section>
+
+          <!-- 最近记录 -->
+          <section class="card mini-card" @click="nav('records')">
+            <div class="mini-head">
+              <el-icon class="mini-ico"><icon-folder-opened></icon-folder-opened></el-icon>
+              <b>面试记录</b>
+              <span v-if="avgScore" class="mini-stat mono">近5场均分 {{ avgScore }}</span>
+              <el-icon class="mini-go"><icon-arrow-right></icon-arrow-right></el-icon>
+            </div>
+            <div class="mini-body">
+              <template v-if="history.length">
+                <div v-for="h in recentHistory" :key="h.id" class="mini-row">
+                  <span :class="['his-score', 'mono', 'sm', { none: !h.score }]">{{ h.score || '—' }}</span>
+                  <span class="mini-row-title">{{ h.round }} · {{ h.style }}</span>
+                  <span class="mini-row-date mono">{{ (h.started_at || '').slice(5, 10) }}</span>
+                </div>
+              </template>
+              <p v-else class="mini-note">还没有面过，第一场结束后这里会有复盘档案</p>
+            </div>
+          </section>
