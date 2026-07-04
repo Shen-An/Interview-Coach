@@ -219,3 +219,22 @@
               <p v-else class="mini-note">还没有面过，第一场结束后这里会有复盘档案</p>
             </div>
           </section>
+
+          <!-- 使用提示 -->
+          <section class="card mini-card static">
+            <div class="mini-head">
+              <el-icon class="mini-ico"><icon-opportunity></icon-opportunity></el-icon>
+              <b>提分要点</b>
+            </div>
+            <ul class="tips">
+              <li>每场只挑一个项目让她深挖，比广度轮收益大</li>
+              <li>回答强制带三个数字：规模、质量、成本/延迟</li>
+              <li>被问倒别硬编，说排查思路比编造扣分少</li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <!-- ───────── 模拟面试 ───────── -->
+    <main v-if="page === 'interview'" class="panel chat-panel">
