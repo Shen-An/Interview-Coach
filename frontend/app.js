@@ -344,3 +344,35 @@ const app = createApp({
         this.savingSettings = false;
       }
     },
+
+    /* ---------- 复盘档案 ---------- */
+    async loadHistory() {
+      try {
+        this.history = (await (await fetch("/api/history")).json()).items || [];
+      } catch {
+        this.history = [];
+      }
+    },
+    async openHistory(h) {
+      try {
+        const d = await (await fetch(`/api/history/${encodeURIComponent(h.id)}`)).json();
+        this.historyTitle = `${h.round} · ${h.style}风格 · ${(h.started_at || "").replace("T", " ")}`;
+        this.historyHtml = marked.parse(d.md || "");
+        this.showHistory = true;
+      } catch (e) {
+        ElMessage.error("读取记录失败：" + e.message);
+      }
+    },
+    async deleteHistory(h) {
+      try {
+        await ElMessageBox.confirm("删除后这场的复盘和对话记录就没了。", "删除这条记录？", {
+          confirmButtonText: "删除",
+          cancelButtonText: "留着",
+          type: "warning",
+        });
+      } catch {
+        return;
+      }
+      await fetch(`/api/history/${encodeURIComponent(h.id)}`, { method: "DELETE" });
+      this.loadHistory();
+    },
