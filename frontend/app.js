@@ -376,3 +376,34 @@ const app = createApp({
       await fetch(`/api/history/${encodeURIComponent(h.id)}`, { method: "DELETE" });
       this.loadHistory();
     },
+
+    /* ---------- 配置自检：保存并测试 ---------- */
+    async saveQuiet() {
+      // 静默保存：测试按钮先落盘当前表单再测，不关弹窗不弹提示
+      const r = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ values: this.st }),
+      });
+      if (!r.ok) throw new Error((await r.json()).detail);
+      this.cfg = await (await fetch("/api/config")).json();
+      this._cloudTtsDead = false;
+      const SR_OK = window.SpeechRecognition || window.webkitSpeechRecognition;
+      this.sttAvailable = !IS_ELECTRON && SR_OK ? true : !!(this.cfg.stt_api_ready && navigator.mediaDevices);
+      return this.cfg;
+    },
+    async testLlm() {
+      this.testing.llm = true;
+      this.testMsg.llm = "";
+      try {
+        await this.saveQuiet();
+        const d = await (await fetch("/api/test/llm", { method: "POST" })).json();
+        this.testOk.llm = d.ok;
+        this.testMsg.llm = d.ok
+          ? `通了 · ${(d.ms / 1000).toFixed(1)}s · 她说：「${d.reply}」`
+          : "失败：" + d.error;
+      } catch (e) {
+        this.testOk.llm = false;
+        this.testMsg.llm = "失败：" + e.message;
+      } finally {
+        this.testing.llm = false;
