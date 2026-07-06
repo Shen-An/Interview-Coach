@@ -281,3 +281,30 @@ body {
 .dot.ok  { background: var(--ok);  box-shadow: 0 0 6px rgba(79, 179, 124, .8); }
 .dot.bad { background: var(--warn); box-shadow: 0 0 6px rgba(219, 162, 75, .8); }
 .side-acts { display: flex; gap: 4px; padding: 0 2px; }
+.side-act {
+  flex: 1; display: grid; place-items: center; height: 32px;
+  background: none; border: 0; border-radius: var(--r-sm);
+  color: var(--text-faint); font-size: 15px; cursor: pointer;
+  transition: background .16s, color .16s;
+}
+.side-act:hover { background: var(--ink-800); color: var(--text); }
+
+/* ---------- 舞台 ---------- */
+.stage { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+
+html.light .el-button--primary {
+  --el-button-text-color: var(--on-signal);
+  --el-button-hover-text-color: var(--on-signal);
+  --el-button-active-text-color: var(--on-signal);
+  --el-button-hover-bg-color: var(--signal-hi);
+  --el-button-hover-border-color: var(--signal-hi);
+  font-weight: 600;
+}
+
+/* ---------- 面板 ---------- */
+.panel {
+  flex: 1; display: flex; flex-direction: column; min-height: 0;
+  width: 100%; max-width: var(--stage-w); margin: 0 auto;
+  padding: 22px 26px 22px;
+}
+/* 滚动页通用：滚动的 flex 列里，子项默认会被压扁而不是溢出——最矮的那块会被切掉 */
