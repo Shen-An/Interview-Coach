@@ -407,3 +407,34 @@ const app = createApp({
         this.testMsg.llm = "失败：" + e.message;
       } finally {
         this.testing.llm = false;
+      }
+    },
+    async testStt() {
+      this.testing.stt = true;
+      this.testMsg.stt = "";
+      try {
+        await this.saveQuiet();
+        const d = await (await fetch("/api/test/stt", { method: "POST" })).json();
+        this.testOk.stt = d.ok;
+        this.testMsg.stt = d.ok
+          ? `通了 · ${(d.ms / 1000).toFixed(1)}s · 识别出：「${d.heard}」`
+          : "失败：" + d.error;
+      } catch (e) {
+        this.testOk.stt = false;
+        this.testMsg.stt = "失败：" + e.message;
+      } finally {
+        this.testing.stt = false;
+      }
+    },
+    async testTts() {
+      this.testing.tts = true;
+      this.testMsg.tts = "";
+      try {
+        await this.saveQuiet();
+        await this.speakCloud("你好，这一段是音色试听，接下来的面试就是这个声音。");
+        this.testOk.tts = true;
+        this.testMsg.tts = "正在播放试听…不满意换个音色再点";
+      } catch (e) {
+        this.testOk.tts = false;
+        this.testMsg.tts = "失败：" + (e.message || e);
+      } finally {
