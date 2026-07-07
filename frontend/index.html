@@ -238,3 +238,15 @@
 
     <!-- ───────── 模拟面试 ───────── -->
     <main v-if="page === 'interview'" class="panel chat-panel">
+      <template v-if="sessionId">
+        <div class="statusbar">
+          <div class="status-left">
+            <span class="timer mono">{{ elapsed }}</span>
+            <el-tag size="small" effect="plain" round>{{ round }}</el-tag>
+            <el-tag size="small" effect="plain" round>{{ style }}风格</el-tag>
+            <el-tag size="small" effect="plain" round>{{ level }}</el-tag>
+            <span class="qcount">第 <b class="mono">{{ questionCount }}</b> 问</span>
+            <el-tag v-if="resume.loaded" size="small" type="success" effect="plain" round>照简历追问</el-tag>
+          </div>
+          <el-button type="danger" plain :loading="busy" @click="endInterview">结束面试并复盘</el-button>
+        </div>
