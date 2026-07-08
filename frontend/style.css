@@ -308,3 +308,18 @@ html.light .el-button--primary {
   padding: 22px 26px 22px;
 }
 /* 滚动页通用：滚动的 flex 列里，子项默认会被压扁而不是溢出——最矮的那块会被切掉 */
+.pg { overflow-y: auto; gap: 14px; }
+.pg > * { flex-shrink: 0; }
+
+/* ============================================================
+   工作台
+   ============================================================ */
+.hero-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  background:
+    radial-gradient(90% 160% at 100% 0%, rgba(36, 181, 196, .1), transparent 55%),
+    var(--ink-900);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  padding: 22px 26px;
+}
