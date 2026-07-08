@@ -250,3 +250,17 @@
           </div>
           <el-button type="danger" plain :loading="busy" @click="endInterview">结束面试并复盘</el-button>
         </div>
+
+        <div class="chat" ref="chatBox">
+          <!-- 内层靠 margin-top:auto 把对话压到贴着输入区，同时不影响溢出滚动 -->
+          <div class="chat-inner">
+            <div v-for="(m, i) in messages" :key="i" :class="['msg', m.role]">
+              <div class="who">{{ m.role === 'assistant' ? '面试官' : '我' }}</div>
+              <div class="bubble">{{ m.content }}</div>
+            </div>
+            <div v-if="busy" class="msg assistant">
+              <div class="who">面试官</div>
+              <div class="bubble thinking"><i></i><i></i><i></i></div>
+            </div>
+          </div>
+        </div>
