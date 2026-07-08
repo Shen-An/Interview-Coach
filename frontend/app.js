@@ -438,3 +438,34 @@ const app = createApp({
         this.testOk.tts = false;
         this.testMsg.tts = "失败：" + (e.message || e);
       } finally {
+        this.testing.tts = false;
+      }
+    },
+
+    /* ---------- 情报库 ---------- */
+    async refreshKb() {
+      if (!this.cfg.ready) {
+        ElMessage.warning("先配置对话模型，联网检索要用它");
+        return this.openSettings();
+      }
+      this.kbBusy = true;
+      try {
+        const r = await fetch("/api/kb/refresh", { method: "POST" });
+        if (!r.ok) throw new Error((await r.json()).detail);
+        const d = await r.json();
+        this.kb = d.kb;
+        this.showIntelSummary(d);
+        if (d.no_news) ElMessage.info("今日无新增面经，行业无重大变化");
+        else ElMessage.success("情报库已更新：" + d.section);
+      } catch (e) {
+        // 搜索通路不可用时后端会给一段多行的排查说明，弹窗比 toast 读得清
+        const msg = String(e.message || e);
+        if (msg.includes("\n")) {
+          ElMessageBox.alert(msg.replace(/\n/g, "<br>"), "联网搜索用不了", {
+            dangerouslyUseHTMLString: true, confirmButtonText: "知道了",
+          });
+        } else ElMessage.error("更新失败：" + msg);
+      } finally {
+        this.kbBusy = false;
+      }
+    },
