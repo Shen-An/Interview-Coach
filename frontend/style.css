@@ -323,3 +323,33 @@ html.light .el-button--primary {
   border-radius: var(--r-lg);
   padding: 22px 26px;
 }
+.hero-main { min-width: 0; }
+.hero-card h1 { font-size: 1.375rem; font-weight: 700; letter-spacing: -.01em; }
+.hero-sub { margin-top: 5px; font-size: .8125rem; color: var(--text-dim); }
+.hero-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.hero-cta { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.cta-ico { margin-right: 4px; }
+.hero-resume-note { font-size: .6875rem; color: var(--text-faint); max-width: 220px; text-align: right; }
+
+.wb-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+.wb-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.wb-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+.mini-card { padding: 13px 15px 14px; cursor: pointer; transition: border-color .18s, background .18s; }
+.mini-card:hover { border-color: rgba(36, 181, 196, .4); }
+.mini-card.static { cursor: default; }
+.mini-card.static:hover { border-color: var(--line-soft); }
+.mini-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.mini-head b { font-size: .875rem; font-weight: 600; }
+.mini-ico { color: var(--signal); font-size: 15px; }
+.mini-go { margin-left: auto; color: var(--text-faint); font-size: 13px; }
+.mini-stat { margin-left: auto; font-size: .6875rem; color: var(--text-faint); }
+.mini-stat + .mini-go { margin-left: 6px; }
+.mini-body { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+.mini-note { font-size: .75rem; color: var(--text-faint); line-height: 1.55; }
+.mini-row { display: flex; align-items: center; gap: 8px; width: 100%; font-size: .8125rem; }
+.mini-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim); }
+.mini-row-date { font-size: .6875rem; color: var(--text-faint); }
+.his-score.sm { width: 30px; font-size: .875rem; }
+.tips { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 6px; }
+.tips li { font-size: .75rem; color: var(--text-dim); line-height: 1.55; }
