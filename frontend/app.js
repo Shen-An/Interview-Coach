@@ -469,3 +469,18 @@ const app = createApp({
         this.kbBusy = false;
       }
     },
+    showIntelSummary(d) {
+      this.intelTitle = d.section || "增量情报";
+      this.intelHtml = marked.parse(d.summary || "（这次没有产出新内容）");
+      this.intelSites = d.sites || [];
+      this.intelSources = d.sources || [];
+    },
+    async loadIntelLatest() {
+      // 静默加载最新一节情报，情报库页面直接展示；没有内容就留空态
+      try {
+        const r = await fetch("/api/kb/latest");
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d.summary) this.showIntelSummary(d);
+      } catch {}
+    },
