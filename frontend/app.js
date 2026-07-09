@@ -484,3 +484,25 @@ const app = createApp({
         if (d.summary) this.showIntelSummary(d);
       } catch {}
     },
+    onKbPick(uploadFile) {
+      const f = uploadFile && uploadFile.raw;
+      if (f) this.importKb(f);
+    },
+    async importKb(f) {
+      if (!f) return;
+      this.kbBusy = true;
+      try {
+        const fd = new FormData();
+        fd.append("file", f, f.name);
+        const r = await fetch("/api/kb/import", { method: "POST", body: fd });
+        if (!r.ok) throw new Error((await r.json()).detail);
+        const d = await r.json();
+        this.kb = d.kb;
+        this.showIntelSummary(d);
+        ElMessage.success("已蒸馏进情报库：" + d.section);
+      } catch (e) {
+        ElMessage.error("导入失败：" + e.message);
+      } finally {
+        this.kbBusy = false;
+      }
+    },
