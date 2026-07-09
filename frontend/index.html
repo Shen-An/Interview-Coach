@@ -264,3 +264,19 @@
             </div>
           </div>
         </div>
+
+        <div class="composer">
+          <div class="composer-top">
+            <el-button-group>
+              <el-button size="small" :disabled="busy" @click="askHint">要个提示</el-button>
+              <el-button size="small" :disabled="busy" @click="skipQuestion">这题跳过</el-button>
+            </el-button-group>
+            <span v-if="speaking" class="speak-flag">
+              朗读中<el-button link size="small" @click="stopTTS">跳过</el-button>
+            </span>
+            <div class="spacer"></div>
+            <span v-if="recording" class="rec-flag">录音中，说完点「停止并发送」</span>
+            <span v-else-if="transcribing" class="rec-flag">正在转写…</span>
+            <span v-else-if="polishing" class="rec-flag">正在修正识别…</span>
+            <span v-else class="dim small">Ctrl + Enter 发送</span>
+          </div>
