@@ -506,3 +506,30 @@ const app = createApp({
         this.kbBusy = false;
       }
     },
+
+    /* ---------- 面试主流程 ---------- */
+    async startInterview() {
+      this.busy = true;
+      try {
+        const r = await fetch("/api/session/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ round: this.round, style: this.style, level: this.level }),
+        });
+        if (!r.ok) throw new Error((await r.json()).detail);
+        const d = await r.json();
+        this.sessionId = d.session_id;
+        this.messages = [{ role: "assistant", content: d.message }];
+        this.startedAt = Date.now();
+        this._timer = setInterval(() => {
+          const s = Math.floor((Date.now() - this.startedAt) / 1000);
+          this.elapsed = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+        }, 1000);
+        this.nav("interview");
+        this.speak(d.message);
+      } catch (e) {
+        ElMessage.error("开始失败：" + e.message);
+      } finally {
+        this.busy = false;
+      }
+    },
