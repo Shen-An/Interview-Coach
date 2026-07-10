@@ -280,3 +280,31 @@
             <span v-else-if="polishing" class="rec-flag">正在修正识别…</span>
             <span v-else class="dim small">Ctrl + Enter 发送</span>
           </div>
+
+          <div class="composer-main">
+            <button type="button" :class="['mic', { rec: recording, wait: transcribing }]"
+                    :disabled="busy || transcribing || polishing || !sttAvailable" @click="toggleMic">
+              <span v-if="recording" class="meter live" :class="{ breathe: !meterLive }">
+                <i v-for="(b, k) in meterBars" :key="k" :style="{ transform: 'scaleY(' + b + ')' }"></i>
+              </span>
+              <el-icon v-else class="mic-ico"><icon-microphone></icon-microphone></el-icon>
+              <span class="mic-label">{{ transcribing ? '转写中' : (polishing ? '修正中' : (recording ? '停止并发送' : '按下说话')) }}</span>
+            </button>
+            <el-input v-model="draft" type="textarea" :autosize="{ minRows: 2, maxRows: 6 }"
+                      :disabled="busy" resize="none"
+                      :placeholder="recording ? (interim || '正在听你说…') : '也可以打字回答'"
+                      @keydown.ctrl.enter.prevent="sendDraft"></el-input>
+            <el-button type="primary" class="send-btn" :disabled="busy || !draft.trim()" @click="sendDraft">发送</el-button>
+          </div>
+        </div>
+      </template>
+
+      <div v-else class="empty-state">
+        <el-icon class="empty-ico"><icon-chat-dot-round></icon-chat-dot-round></el-icon>
+        <h2>还没有进行中的面试</h2>
+        <p class="dim">去工作台选好轮次和风格，点「开始面试」就到这里</p>
+        <el-button type="primary" @click="nav('prep')">去开始一场</el-button>
+      </div>
+    </main>
+
+    <!-- ───────── 情报库 ───────── -->
