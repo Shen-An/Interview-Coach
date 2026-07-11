@@ -533,3 +533,31 @@ const app = createApp({
         this.busy = false;
       }
     },
+
+    async sendDraft() {
+      const text = this.draft.trim();
+      if (!text || this.busy) return;
+      this.stopTTS();
+      this.stopMic(false);
+      this.draft = "";
+      this.messages.push({ role: "user", content: text });
+      this.scrollDown();
+      this.busy = true;
+      try {
+        const r = await fetch(`/api/session/${this.sessionId}/turn`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        if (!r.ok) throw new Error((await r.json()).detail);
+        const d = await r.json();
+        this.messages.push({ role: "assistant", content: d.message });
+        this.scrollDown();
+        this.speak(d.message);
+      } catch (e) {
+        this.messages.push({ role: "assistant", content: "（系统错误：" + e.message + "）" });
+        this.scrollDown();
+      } finally {
+        this.busy = false;
+      }
+    },
