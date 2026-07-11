@@ -308,3 +308,20 @@
     </main>
 
     <!-- ───────── 情报库 ───────── -->
+    <main v-if="page === 'intel'" class="panel pg intel-page">
+      <div class="page-head">
+        <div class="page-title">
+          <h1>面试官情报库</h1>
+          <p class="page-note">大厂面经的增量更新，决定面试官会问到多新的东西</p>
+        </div>
+        <div class="page-acts">
+          <el-button type="primary" :loading="kbBusy" @click="refreshKb">
+            {{ kbBusy ? '情报搜集中…' : '联网搜今日面经' }}
+          </el-button>
+          <el-upload class="inline-upload" :auto-upload="false" :show-file-list="false"
+                     accept=".md,.markdown,.txt" :disabled="kbBusy" @change="onKbPick">
+            <el-button :disabled="kbBusy">导入日更文件</el-button>
+          </el-upload>
+        </div>
+      </div>
+      <p v-if="kbBusy" class="intel-hint">联网检索 + 蒸馏约 1–2 分钟，会用掉你配置的模型的少量额度。</p>
