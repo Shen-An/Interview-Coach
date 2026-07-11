@@ -400,3 +400,33 @@ html.light .el-button--primary {
 }
 .empty-ico { font-size: 44px; color: var(--text-faint); opacity: .6; margin-bottom: 4px; }
 .empty-state h2 { font-size: 1.0625rem; font-weight: 600; }
+.empty-state .el-button { margin-top: 8px; }
+.empty-inline { padding: 6px 2px 4px; font-size: .8125rem; line-height: 1.6; }
+
+.card {
+  background: var(--ink-900);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  padding: 14px 18px 16px;
+}
+.card-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.card-head h2 { font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
+.card-note { font-size: .75rem; color: var(--text-faint); }
+
+/* 拖放区 */
+.dropzone .el-upload-dragger {
+  background: var(--ink-950);
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  padding: 20px 16px;
+  transition: border-color .18s, background .18s;
+}
+.dropzone .el-upload-dragger:hover,
+.dropzone .el-upload-dragger.is-dragover {
+  border-color: var(--signal); background: var(--signal-wash);
+}
+.dz-icon { font-size: 30px; color: var(--signal); opacity: .7; }
+.dz-title { margin-top: 8px; font-size: .9375rem; color: var(--text); }
+.dz-sub { margin-top: 4px; font-size: .75rem; color: var(--text-faint); }
+
+/* 已载入 */
