@@ -561,3 +561,35 @@ const app = createApp({
         this.busy = false;
       }
     },
+
+    async endInterview() {
+      try {
+        await ElMessageBox.confirm(
+          `已经聊了 ${this.questionCount} 问、${this.elapsed}。结束后会生成五维评分和扣分点回放。`,
+          "结束面试并复盘？",
+          { confirmButtonText: "结束并复盘", cancelButtonText: "再聊几句", type: "warning" }
+        );
+      } catch {
+        return;
+      }
+      this.stopTTS();
+      this.stopMic(false);
+      this.busy = true;
+      // 复盘是长生成：给用户一个进度感，也给请求一个硬超时兜底（后端有轮换，前端别无限等）
+      const tip = ElMessage({ message: "复盘生成中：五维评分 + 扣分回放，通常 1~3 分钟…", type: "info", duration: 0 });
+      const ctl = new AbortController();
+      const killer = setTimeout(() => ctl.abort(), 360000);
+      try {
+        const r = await fetch(`/api/session/${this.sessionId}/end`, { method: "POST", signal: ctl.signal });
+        if (!r.ok) throw new Error((await r.json()).detail);
+        const d = await r.json();
+        this.report = d.report;
+        this.savedTo = d.saved_to;
+        this.sessionId = null;
+        clearInterval(this._timer);
+        this.loadHistory();
+        this.nav("report");
+      } catch (e) {
+        ElMessage.error(
+          e.name === "AbortError"
+            ? "复盘超时：6 分钟没等到模型回话。多半是中转站断了——去设置点「保存并测试对话」确认，修好后再点一次结束（对话还在，不会丢）。"
