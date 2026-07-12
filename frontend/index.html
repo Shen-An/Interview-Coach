@@ -325,3 +325,25 @@
         </div>
       </div>
       <p v-if="kbBusy" class="intel-hint">联网检索 + 蒸馏约 1–2 分钟，会用掉你配置的模型的少量额度。</p>
+
+      <div class="stat-strip">
+        <div class="stat-tile">
+          <span class="stat-label">增量情报</span>
+          <span :class="['stat-value', kb.latest_update ? (kbStale ? 'warn' : 'ok') : 'faint']">
+            {{ kb.latest_update ? (kbStale ? '有待更新' : '今日已更新') : '暂无' }}
+          </span>
+          <span class="stat-sub mono">{{ kb.latest_update || '只用内置题库' }}</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-label">知识库文件</span>
+          <span class="stat-value mono">{{ (kb.files || []).length }}</span>
+          <span class="stat-sub">人格卡 · 题库 · 评分细则 · 日更</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-label">总字数</span>
+          <span class="stat-value mono">{{ kbChars }}</span>
+          <span class="stat-sub">全部随开场提示词喂给面试官</span>
+        </div>
+      </div>
+
+      <!-- 最新情报正文 -->
