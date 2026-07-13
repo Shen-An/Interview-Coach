@@ -593,3 +593,20 @@ const app = createApp({
         ElMessage.error(
           e.name === "AbortError"
             ? "复盘超时：6 分钟没等到模型回话。多半是中转站断了——去设置点「保存并测试对话」确认，修好后再点一次结束（对话还在，不会丢）。"
+            : "复盘失败：" + e.message
+        );
+      } finally {
+        clearTimeout(killer);
+        tip.close();
+        this.busy = false;
+      }
+    },
+
+    askHint() {
+      this.draft = "这里我卡住了，能给点提示吗？";
+      this.sendDraft();
+    },
+    skipQuestion() {
+      this.draft = "这题我确实不太会，先跳过吧。";
+      this.sendDraft();
+    },
