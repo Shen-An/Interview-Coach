@@ -610,3 +610,27 @@ const app = createApp({
       this.draft = "这题我确实不太会，先跳过吧。";
       this.sendDraft();
     },
+    reset() {
+      this.report = null;
+      this.messages = [];
+      this.elapsed = "00:00";
+      this.savedTo = "";
+      this.nav("prep");
+    },
+
+    /* ---------- 复盘辅助 ---------- */
+    stripScoreBlock(md) {
+      const lines = md.split("\n");
+      const out = [];
+      let i = 0;
+      while (i < lines.length) {
+        if (/^#{1,4}\s*总分/.test(lines[i])) {
+          i++;
+          while (i < lines.length && (lines[i].trim() === "" || lines[i].trim().startsWith("|"))) i++;
+          continue;
+        }
+        out.push(lines[i]);
+        i++;
+      }
+      return out.join("\n");
+    },
