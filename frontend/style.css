@@ -430,3 +430,23 @@ html.light .el-button--primary {
 .dz-sub { margin-top: 4px; font-size: .75rem; color: var(--text-faint); }
 
 /* 已载入 */
+.loaded {
+  background: var(--ink-950);
+  border: 1px solid var(--line-soft);
+  border-left: 2px solid var(--ok);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+}
+.loaded-top { display: flex; align-items: center; gap: 8px; font-size: .875rem; }
+.loaded-name { font-weight: 600; }
+.ok-icon { color: var(--ok); }
+.loaded-preview {
+  margin-top: 8px; font-size: .8125rem; line-height: 1.6; color: var(--text-dim);
+  max-height: 3.2em; overflow: hidden;
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+.inline-upload { display: inline-block; }
+
+/* 情报库 */
+.intel-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.intel-state { display: flex; align-items: center; gap: 10px; min-width: 0; }
