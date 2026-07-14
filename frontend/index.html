@@ -347,3 +347,32 @@
       </div>
 
       <!-- 最新情报正文 -->
+      <section class="card">
+        <div class="card-head">
+          <span class="eyebrow">LATEST</span>
+          <h2>{{ intelTitle || '最新情报' }}</h2>
+        </div>
+        <template v-if="intelHtml">
+          <div v-if="intelSites.length" class="intel-sites">
+            <span class="dim small">本次命中站点</span>
+            <el-tag v-for="s in intelSites" :key="s.host" size="small" effect="plain" round>
+              {{ s.host }} × {{ s.count }}
+            </el-tag>
+          </div>
+          <article class="dossier flat" v-html="intelHtml"></article>
+          <el-collapse v-if="intelSources.length" class="intel-links">
+            <el-collapse-item :title="'原文链接（' + intelSources.length + '）'" name="src">
+              <ul>
+                <li v-for="src in intelSources" :key="src.url">
+                  <a :href="src.url" target="_blank" rel="noreferrer">{{ src.title || src.url }}</a>
+                </li>
+              </ul>
+            </el-collapse-item>
+          </el-collapse>
+        </template>
+        <div v-else class="empty-inline">
+          <p class="dim">情报库还没有增量内容。点右上角「联网搜今日面经」，面试官会检索今天的最新面经并蒸馏进题库。</p>
+        </div>
+      </section>
+
+      <!-- 知识库文件 -->
