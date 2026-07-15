@@ -634,3 +634,20 @@ const app = createApp({
       }
       return out.join("\n");
     },
+    barColor(pct) {
+      if (pct >= 80) return "#4FB37C";
+      if (pct >= 60) return "#24B5C4";
+      if (pct >= 40) return "#DBA24B";
+      return "#DF6663";
+    },
+    async copy(text, okMsg) {
+      try {
+        await navigator.clipboard.writeText(text);
+        ElMessage.success(okMsg);
+      } catch {
+        ElMessage.warning("这个环境不让直接写剪贴板，手动选中复制吧");
+      }
+    },
+    copyReport() {
+      this.copy(this.report || "", "复盘 Markdown 已复制");
+    },
