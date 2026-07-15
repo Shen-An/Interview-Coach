@@ -450,3 +450,34 @@ html.light .el-button--primary {
 /* 情报库 */
 .intel-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .intel-state { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.intel-latest { font-size: .75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.intel-acts { display: flex; align-items: center; gap: 8px; }
+.intel-hint { margin-top: 10px; font-size: .75rem; color: var(--text-faint); }
+
+/* 配置字段 */
+.field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.field + .field, .field-pair { margin-top: 12px; }
+/* 成对的两个字段是并排的，别让上面那条相邻规则把右边那个往下推 12px */
+.field-pair > .field { margin-top: 0; }
+.field label {
+  font-family: var(--font-mono); font-size: .6875rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text-dim);
+  display: flex; align-items: baseline; gap: 8px;
+}
+.field label em {
+  font-family: var(--font-body); font-style: normal; text-transform: none;
+  letter-spacing: 0; font-size: .75rem; color: var(--text-faint);
+}
+/* 按选项个数分配宽度（轮次 2 个 / 风格 5 个），两个控件的分段宽度才会一样 */
+.field-pair { display: grid; grid-template-columns: 2fr 5fr; gap: 26px; align-items: start; }
+
+html.dark .el-segmented {
+  --el-segmented-bg-color: var(--ink-950);
+  --el-segmented-item-selected-bg-color: #1F3238;
+  --el-segmented-item-selected-color: var(--signal-hi);
+  --el-segmented-item-hover-bg-color: var(--ink-800);
+  --el-segmented-item-hover-color: var(--text);
+  border: 1px solid var(--line-soft);
+  padding: 3px;
+  font-size: .8125rem;
+}
