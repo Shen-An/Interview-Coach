@@ -651,3 +651,24 @@ const app = createApp({
     copyReport() {
       this.copy(this.report || "", "复盘 Markdown 已复制");
     },
+    copyPath() {
+      this.copy(this.savedTo || "", "存档路径已复制");
+    },
+
+    /* ---------- TTS：面试官朗读 ----------
+       三级：配了 key 走付费云端（onyx + 语气指令）→ 没配走 Edge 免费云音（云希男声 + 风格韵律，
+       后端 /api/tts 内部选路）→ 网络挂了才退系统本地音。失败一次后本场跳过云端，不反复等超时 */
+    async speak(text) {
+      if (!this.ttsOn) return;
+      const clean = text.replace(/[#*`>\-]/g, "");
+      if (!this._cloudTtsDead) {
+        try {
+          await this.speakCloud(clean);
+          return;
+        } catch (e) {
+          this._cloudTtsDead = true;
+          console.warn("云端 TTS 失败，降级本地语音：", e);
+        }
+      }
+      this.speakLocal(clean);
+    },
