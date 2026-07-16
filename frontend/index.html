@@ -376,3 +376,24 @@
       </section>
 
       <!-- 知识库文件 -->
+      <section class="card">
+        <div class="card-head">
+          <span class="eyebrow">FILES</span>
+          <h2>知识库文件</h2>
+          <span class="card-note">直接编辑文件即可增补题库，重启生效</span>
+          <div class="spacer"></div>
+          <el-button v-if="isElectron" link size="small" @click="icOpen('kb')">打开文件夹</el-button>
+        </div>
+        <div class="kb-files">
+          <div v-for="f in kb.files" :key="f.name" class="kb-file">
+            <el-icon class="kb-file-ico"><icon-document></icon-document></el-icon>
+            <span class="kb-file-name mono">{{ f.name }}</span>
+            <span class="kb-file-meta mono dim">{{ f.chars }} 字</span>
+            <span class="kb-file-meta mono dim">{{ (f.mtime || '').replace('T', ' ') }}</span>
+          </div>
+          <p v-if="!(kb.files || []).length" class="dim small">还没有知识库文件</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- ───────── 面试记录 ───────── -->
