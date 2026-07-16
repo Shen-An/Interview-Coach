@@ -397,3 +397,14 @@
     </main>
 
     <!-- ───────── 面试记录 ───────── -->
+    <main v-if="page === 'records'" class="panel pg records-page">
+      <div class="page-head">
+        <div class="page-title">
+          <h1>面试记录</h1>
+          <p class="page-note">复习扣分点比多面一场更涨分，两周后重考同一批扣分点</p>
+        </div>
+        <el-input v-model="archFilter" clearable class="rec-filter"
+                  placeholder="筛选：字节 / 二面 / 在校实习 / 日期…">
+          <template #prefix><el-icon><icon-search></icon-search></el-icon></template>
+        </el-input>
+      </div>
