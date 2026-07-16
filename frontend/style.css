@@ -481,3 +481,30 @@ html.dark .el-segmented {
   padding: 3px;
   font-size: .8125rem;
 }
+html.dark .el-segmented__item.is-selected { font-weight: 600; }
+html.dark .el-segmented__item-selected { box-shadow: inset 0 0 0 1px rgba(87, 219, 230, .28); }
+
+html.light .el-segmented {
+  --el-segmented-bg-color: var(--ink-800);
+  --el-segmented-item-selected-bg-color: #FFFFFF;
+  --el-segmented-item-selected-color: var(--signal-hi);
+  --el-segmented-item-hover-bg-color: #F0F4F5;
+  --el-segmented-item-hover-color: var(--text);
+  border: 1px solid var(--line-soft);
+  padding: 3px;
+  font-size: .8125rem;
+}
+html.light .el-segmented__item.is-selected { font-weight: 600; }
+html.light .el-segmented__item-selected { box-shadow: 0 1px 3px rgba(22, 38, 44, .14), inset 0 0 0 1px rgba(14, 147, 163, .25); }
+
+/* EP 默认给选项标签 nowrap+ellipsis，中文稍挤就变「…」——放开让它完整显示 */
+.el-segmented__item-label {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  line-height: 1.35 !important;
+}
+.el-segmented__item { padding-left: 6px !important; padding-right: 6px !important; }
+
+html.dark .el-switch { --el-switch-on-color: var(--signal-lo); }
+html.light .el-switch { --el-switch-on-color: var(--signal); }
