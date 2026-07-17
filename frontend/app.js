@@ -692,3 +692,24 @@ const app = createApp({
       };
       await audio.play();
     },
+
+    speakLocal(text) {
+      if (!("speechSynthesis" in window)) return;
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "zh-CN";
+      if (this._voice) u.voice = this._voice;
+      // 按厂风格调韵律：压力面快而低，慢厂稳而平
+      const prosody = {
+        "字节": { rate: 1.14, pitch: 0.9 },
+        "美团": { rate: 1.06, pitch: 0.94 },
+        "阿里/蚂蚁": { rate: 1.0, pitch: 0.92 },
+        "腾讯": { rate: 1.0, pitch: 1.0 },
+        "京东": { rate: 0.96, pitch: 0.98 },
+      }[this.style] || { rate: 1.05, pitch: 0.95 };
+      u.rate = prosody.rate;
+      u.pitch = prosody.pitch;
+      u.onstart = () => (this.speaking = true);
+      u.onend = u.onerror = () => (this.speaking = false);
+      speechSynthesis.speak(u);
+    },
