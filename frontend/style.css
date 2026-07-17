@@ -508,3 +508,18 @@ html.light .el-segmented__item-selected { box-shadow: 0 1px 3px rgba(22, 38, 44,
 
 html.dark .el-switch { --el-switch-on-color: var(--signal-lo); }
 html.light .el-switch { --el-switch-on-color: var(--signal); }
+
+html.dark .pg .el-divider--horizontal, html.light .pg .el-divider--horizontal { margin: 16px 0 14px; }
+
+.toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.toggle { display: flex; align-items: center; gap: 9px; font-size: .875rem; }
+
+/* 复盘档案 */
+.his-list { display: flex; flex-direction: column; }
+.his-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 2px; border-top: 1px solid var(--line-soft);
+}
+.his-row.wide { padding: 11px 8px; margin: 0 -8px; border-radius: var(--r-sm); cursor: pointer; transition: background .15s; }
+.his-row.wide:hover { background: var(--ink-800); }
+.his-row:first-child { border-top: 0; }
