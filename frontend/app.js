@@ -672,3 +672,23 @@ const app = createApp({
       }
       this.speakLocal(clean);
     },
+
+    async speakCloud(text) {
+      this.stopTTS();
+      const r = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, style: this.style }),
+      });
+      if (!r.ok) throw new Error((await r.json()).detail);
+      const url = URL.createObjectURL(await r.blob());
+      const audio = new Audio(url);
+      this._audio = audio;
+      audio.onplay = () => (this.speaking = true);
+      audio.onended = audio.onerror = () => {
+        this.speaking = false;
+        URL.revokeObjectURL(url);
+        if (this._audio === audio) this._audio = null;
+      };
+      await audio.play();
+    },
