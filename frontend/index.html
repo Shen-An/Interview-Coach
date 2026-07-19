@@ -408,3 +408,21 @@
           <template #prefix><el-icon><icon-search></icon-search></el-icon></template>
         </el-input>
       </div>
+
+      <div v-if="history.length" class="stat-strip">
+        <div class="stat-tile">
+          <span class="stat-label">总场次</span>
+          <span class="stat-value mono">{{ history.length }}</span>
+          <span class="stat-sub">存在本机 sessions/ 目录</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-label">近 5 场均分</span>
+          <span class="stat-value mono">{{ avgScore || '—' }}</span>
+          <span class="stat-sub">按结束时间倒序取 5 场</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-label">最高分</span>
+          <span class="stat-value mono">{{ bestScore || '—' }}</span>
+          <span class="stat-sub">≥85 SSP · 70-84 SP · 55-69 普通</span>
+        </div>
+      </div>
