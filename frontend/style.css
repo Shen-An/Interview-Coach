@@ -523,3 +523,19 @@ html.dark .pg .el-divider--horizontal, html.light .pg .el-divider--horizontal { 
 .his-row.wide { padding: 11px 8px; margin: 0 -8px; border-radius: var(--r-sm); cursor: pointer; transition: background .15s; }
 .his-row.wide:hover { background: var(--ink-800); }
 .his-row:first-child { border-top: 0; }
+.his-score {
+  flex: none; width: 44px; text-align: center;
+  font-size: 1.125rem; font-weight: 600; color: var(--signal);
+}
+.his-score.none { color: var(--text-faint); font-weight: 400; }
+.his-main { flex: 1; min-width: 0; }
+.his-title { font-size: .875rem; }
+.his-sub { font-size: .75rem; color: var(--text-faint); margin-top: 1px; }
+.history-dialog .el-dialog__body { max-height: 68vh; overflow-y: auto; }
+.his-dossier { border: 0; padding: 4px 6px 10px; background: transparent; }
+
+.arch-empty { text-align: center; font-size: .8125rem; color: var(--text-faint); padding: 24px 0; }
+
+/* 开始 */
+.start-btn { min-width: 190px; font-size: 1.0625rem; letter-spacing: .04em; }
+.inline-link { margin-left: 6px; }
