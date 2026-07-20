@@ -426,3 +426,18 @@
           <span class="stat-sub">≥85 SSP · 70-84 SP · 55-69 普通</span>
         </div>
       </div>
+
+      <section v-if="history.length" class="card">
+        <div class="his-list">
+          <div v-for="h in filteredHistory" :key="h.id" class="his-row wide" @click="openHistory(h)">
+            <span :class="['his-score', 'mono', { none: !h.score }]">{{ h.score || '—' }}</span>
+            <div class="his-main">
+              <div class="his-title">{{ h.round }} · {{ h.style }}风格 · {{ h.level }}</div>
+              <div class="his-sub">{{ (h.started_at || '').replace('T', ' ') }} · {{ h.questions }} 问{{ h.resume_used ? ' · 照简历' : '' }}</div>
+            </div>
+            <el-button link size="small" @click.stop="openHistory(h)">回看</el-button>
+            <el-button link size="small" type="danger" @click.stop="deleteHistory(h)">删除</el-button>
+          </div>
+          <p v-if="!filteredHistory.length" class="arch-empty">没有匹配的记录</p>
+        </div>
+      </section>
