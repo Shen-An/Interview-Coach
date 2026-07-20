@@ -713,3 +713,18 @@ const app = createApp({
       u.onend = u.onerror = () => (this.speaking = false);
       speechSynthesis.speak(u);
     },
+
+    stopTTS() {
+      if ("speechSynthesis" in window) speechSynthesis.cancel();
+      if (this._audio) {
+        try { this._audio.pause(); } catch {}
+        this._audio = null;
+      }
+      this.speaking = false;
+    },
+
+    /* ---------- STT：候选人语音作答（按下说话 → 停止并发送）----------
+       双路：浏览器走 Web Speech API（免费实时）；Electron 走 MediaRecorder + 转写 API */
+    toggleMic() {
+      this.recording ? this.stopMic(true) : this.startMic();
+    },
