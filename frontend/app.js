@@ -728,3 +728,34 @@ const app = createApp({
     toggleMic() {
       this.recording ? this.stopMic(true) : this.startMic();
     },
+    startMic() {
+      if (!SR) return this.startRecorder();
+      this.stopTTS(); // 打断面试官朗读，像真实抢话
+      const rec = new SR();
+      rec.lang = "zh-CN";
+      rec.continuous = true;
+      rec.interimResults = true;
+      let finalText = this.draft ? this.draft + " " : "";
+      rec.onresult = (ev) => {
+        let interim = "";
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const t = ev.results[i][0].transcript;
+          if (ev.results[i].isFinal) finalText += t;
+          else interim += t;
+        }
+        this.interim = interim;
+        this.draft = finalText + interim;
+      };
+      rec.onerror = (ev) => {
+        if (ev.error !== "no-speech" && ev.error !== "aborted")
+          ElMessage.error("语音识别出错：" + ev.error + "，检查一下麦克风权限");
+        this.recording = false;
+        this.stopMeter();
+      };
+      rec.onend = () => {
+        // continuous 模式下浏览器可能自动断开：仍在录音状态就重启
+        if (this.recording) {
+          try {
+            rec.start();
+          } catch {
+            this.recording = false;
