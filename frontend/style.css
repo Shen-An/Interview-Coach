@@ -555,3 +555,31 @@ html.dark .pg .el-divider--horizontal, html.light .pg .el-divider--horizontal { 
   font-size: 1.375rem; letter-spacing: .02em; color: var(--text);
   line-height: 1; padding-right: 4px;
 }
+.qcount { font-size: .75rem; color: var(--text-faint); }
+.qcount b { color: var(--signal); font-size: .875rem; }
+
+/* 对话流 */
+.chat {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column;
+  padding: 18px 2px 10px;
+}
+.chat-inner { margin-top: auto; display: flex; flex-direction: column; gap: 16px; }
+.msg { max-width: 78%; display: flex; flex-direction: column; gap: 4px; }
+.msg.assistant { align-self: flex-start; }
+.msg.user { align-self: flex-end; align-items: flex-end; }
+.who {
+  font-family: var(--font-mono); font-size: .625rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.msg.assistant .who { color: var(--signal); opacity: .8; }
+
+/* 气泡：靠说话人那一侧的角收紧，指向发言者 */
+.bubble {
+  padding: 11px 15px; line-height: 1.72; white-space: pre-wrap;
+  word-break: break-word; font-size: .9375rem;
+}
+.assistant .bubble {
+  background: var(--ink-800); border: 1px solid var(--line);
+  border-radius: 4px 14px 14px 14px;
+}
