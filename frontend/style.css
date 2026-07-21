@@ -539,3 +539,19 @@ html.dark .pg .el-divider--horizontal, html.light .pg .el-divider--horizontal { 
 /* 开始 */
 .start-btn { min-width: 190px; font-size: 1.0625rem; letter-spacing: .04em; }
 .inline-link { margin-left: 6px; }
+
+/* ============================================================
+   阶段二：面试
+   ============================================================ */
+.chat-panel { padding-top: 12px; }
+
+.statusbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--line-soft); flex-wrap: wrap;
+}
+.status-left { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; min-width: 0; }
+.status-right { display: flex; align-items: center; gap: 9px; }
+.timer {
+  font-size: 1.375rem; letter-spacing: .02em; color: var(--text);
+  line-height: 1; padding-right: 4px;
+}
