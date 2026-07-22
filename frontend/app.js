@@ -759,3 +759,12 @@ const app = createApp({
             rec.start();
           } catch {
             this.recording = false;
+          }
+        }
+      };
+      this._rec = rec;
+      this.recording = true;
+      // 这条通路有实时听写文字兜底，不再额外占一路麦克风，音量表走呼吸动画
+      this.meterLive = false;
+      rec.start();
+    },
