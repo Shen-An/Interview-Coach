@@ -768,3 +768,22 @@ const app = createApp({
       this.meterLive = false;
       rec.start();
     },
+    stopMic(send) {
+      if (this._media) return this.stopRecorder(send);
+      if (this._rec) {
+        this.recording = false;
+        try {
+          this._rec.stop();
+        } catch {}
+        this._rec = null;
+      } else {
+        this.recording = false;
+      }
+      this.interim = "";
+      this.stopMeter();
+      // 等最后一段 final 结果落地，再过一遍转写后处理
+      if (send) setTimeout(async () => {
+        this.draft = await this.polish(this.draft);
+        this.sendDraft();
+      }, 250);
+    },
