@@ -583,3 +583,26 @@ html.dark .pg .el-divider--horizontal, html.light .pg .el-divider--horizontal { 
   background: var(--ink-800); border: 1px solid var(--line);
   border-radius: 4px 14px 14px 14px;
 }
+.user .bubble {
+  background: var(--signal-wash); border: 1px solid rgba(36, 181, 196, .3);
+  color: #DFF3F5; border-radius: 14px 4px 14px 14px;
+}
+html.light .user .bubble { color: #0C4A52; border-color: rgba(14, 147, 163, .32); }
+
+.thinking { display: flex; gap: 5px; align-items: center; padding: 15px; }
+.thinking i {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint);
+  animation: blink 1.25s infinite;
+}
+.thinking i:nth-child(2) { animation-delay: .18s; }
+.thinking i:nth-child(3) { animation-delay: .36s; }
+@keyframes blink { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
+
+/* 输入区 */
+.composer { border-top: 1px solid var(--line-soft); padding-top: 12px; }
+.composer-top { display: flex; align-items: center; gap: 12px; margin-bottom: 9px; flex-wrap: wrap; }
+.speak-flag { font-size: .75rem; color: var(--text-dim); display: inline-flex; align-items: center; gap: 4px; }
+.speak-flag::before {
+  content: ""; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--signal); animation: blink 1.4s infinite;
+}
