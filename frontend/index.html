@@ -441,3 +441,14 @@
           <p v-if="!filteredHistory.length" class="arch-empty">没有匹配的记录</p>
         </div>
       </section>
+
+      <div v-else class="empty-state">
+        <el-icon class="empty-ico"><icon-folder-opened></icon-folder-opened></el-icon>
+        <h2>还没有面试记录</h2>
+        <p class="dim">第一场面完，复盘和对话记录会自动存档到这里</p>
+        <el-button type="primary" @click="nav('prep')">去面一场</el-button>
+      </div>
+    </main>
+
+    <!-- ───────── 本场复盘 ───────── -->
+    <main v-if="page === 'report'" class="panel report-panel">
