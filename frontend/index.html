@@ -452,3 +452,17 @@
 
     <!-- ───────── 本场复盘 ───────── -->
     <main v-if="page === 'report'" class="panel report-panel">
+      <template v-if="report">
+        <div class="statusbar">
+          <div class="status-left">
+            <span class="eyebrow">DEBRIEF</span>
+            <el-tooltip :content="savedTo" placement="bottom">
+              <span class="mono dim archive" @click="copyPath">已存档 · 点击复制路径</span>
+            </el-tooltip>
+          </div>
+          <div class="status-right">
+            <el-button plain @click="copyReport">复制 Markdown</el-button>
+            <el-button plain @click="nav('records')">全部记录</el-button>
+            <el-button type="primary" @click="reset">再来一场</el-button>
+          </div>
+        </div>
