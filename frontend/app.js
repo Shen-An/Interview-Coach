@@ -787,3 +787,35 @@ const app = createApp({
         this.sendDraft();
       }, 250);
     },
+
+    /* ---------- 麦克风设备 ---------- */
+    async openMicStream() {
+      // 指定设备失败（拔了/关了）就退回系统默认，别让面试卡在这
+      if (this.micId) {
+        try {
+          return await navigator.mediaDevices.getUserMedia({
+            audio: { deviceId: { exact: this.micId } },
+          });
+        } catch {
+          this.micId = "";
+          localStorage.removeItem("ic_mic");
+          ElMessage.warning("之前选的麦克风不在了，已退回系统默认");
+        }
+      }
+      // 没手动选过，就跟 Windows 的「默认通信设备」走——微信打电话用的就是这个，
+      // 蓝牙耳机会被自动切到免提模式，麦克风才通；默认设备常年落在空插孔或虚拟声卡上
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: { exact: "communications" } },
+        });
+      } catch {
+        return navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+    },
+    async loadMics() {
+      try {
+        // 先拿一次授权，否则 enumerateDevices 只给空标签，列表全是「麦克风 1/2/3」
+        const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
+        probe.getTracks().forEach((t) => t.stop());
+        const all = await navigator.mediaDevices.enumerateDevices();
+        this.mics = all
