@@ -606,3 +606,34 @@ html.light .user .bubble { color: #0C4A52; border-color: rgba(14, 147, 163, .32)
   content: ""; width: 5px; height: 5px; border-radius: 50%;
   background: var(--signal); animation: blink 1.4s infinite;
 }
+.rec-flag { font-size: .75rem; color: var(--bad); }
+
+.composer-main { display: flex; align-items: flex-end; gap: 10px; }
+.composer-main .el-textarea { flex: 1; }
+html.dark .composer-main .el-textarea__inner, html.light .composer-main .el-textarea__inner {
+  background: var(--ink-950); border: 1px solid var(--line);
+  border-radius: var(--r-md); padding: 10px 12px;
+  font-family: var(--font-body); font-size: .9375rem; line-height: 1.6;
+  box-shadow: none;
+}
+html.dark .composer-main .el-textarea__inner:focus, html.light .composer-main .el-textarea__inner:focus { border-color: var(--signal); }
+html.light .composer-main .el-textarea__inner { background: #FFFFFF; color: var(--text); }
+.send-btn { height: 44px; padding: 0 22px; }
+
+/* 麦克风：这一屏最大的可点对象 */
+.mic {
+  flex: none; display: flex; align-items: center; gap: 10px;
+  min-width: 152px; height: 44px; padding: 0 16px;
+  background: var(--ink-800); color: var(--signal);
+  border: 1px solid rgba(36, 181, 196, .35); border-radius: var(--r-md);
+  font-family: var(--font-body); font-size: .875rem; font-weight: 600;
+  cursor: pointer; transition: background .16s, border-color .16s, color .16s;
+}
+.mic:hover:not(:disabled) { background: var(--signal-wash); border-color: var(--signal); }
+.mic:disabled { opacity: .4; cursor: not-allowed; }
+.mic.rec {
+  background: rgba(223, 102, 99, .14); border-color: var(--bad); color: #FFC9C7;
+}
+html.light .mic.rec { color: #A63835; background: rgba(201, 79, 76, .1); }
+.mic.wait { color: var(--warn); border-color: rgba(219, 162, 75, .4); }
+.mic-label { white-space: nowrap; }
