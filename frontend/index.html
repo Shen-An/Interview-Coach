@@ -466,3 +466,33 @@
             <el-button type="primary" @click="reset">再来一场</el-button>
           </div>
         </div>
+
+        <div class="report-scroll">
+          <!-- 评分卡：从复盘正文里解析出的真实分数 -->
+          <section v-if="scores.length" class="scorecard">
+            <div class="total">
+              <el-progress type="dashboard" :percentage="totalPct" :width="150" :stroke-width="9"
+                           :color="gradeColor" :show-text="false"></el-progress>
+              <div class="total-inner">
+                <span class="total-num mono">{{ totalScore }}</span>
+                <span class="total-den mono">/ 100</span>
+              </div>
+            </div>
+            <div class="dims">
+              <div class="grade-line">
+                <span class="grade" :style="{ color: gradeColor }">{{ grade || '已评分' }}</span>
+                <span v-if="gradeNote" class="grade-note">{{ gradeNote }}</span>
+                <span class="dim small">{{ round }} · {{ style }}风格 · {{ level }}</span>
+              </div>
+              <div v-for="d in scores" :key="d.key" class="dim-row">
+                <span class="dim-key mono">{{ d.key }}</span>
+                <span class="dim-name">{{ d.name }}</span>
+                <span class="dim-bar"><i :style="{ width: d.pct + '%', background: barColor(d.pct) }"></i></span>
+                <span class="dim-score mono">{{ d.score }}<em>/{{ d.max }}</em></span>
+              </div>
+            </div>
+          </section>
+
+          <article class="dossier" v-html="reportHtml"></article>
+        </div>
+      </template>
