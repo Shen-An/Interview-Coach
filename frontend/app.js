@@ -819,3 +819,11 @@ const app = createApp({
         probe.getTracks().forEach((t) => t.stop());
         const all = await navigator.mediaDevices.enumerateDevices();
         this.mics = all
+          .filter((d) => d.kind === "audioinput" && d.deviceId !== "communications")
+          .map((d) => ({ id: d.deviceId, label: d.label || "未命名输入设备" }));
+        if (this.micId && !this.mics.some((m) => m.id === this.micId)) this.micId = "";
+      } catch (e) {
+        this.mics = [];
+        this.micTest.msg = "拿不到设备列表：" + (e.message || e);
+      }
+    },
