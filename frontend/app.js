@@ -858,3 +858,18 @@ const app = createApp({
             if (Date.now() - t0 > 4000) return done();
             requestAnimationFrame(tick);
           };
+          tick();
+        });
+        ctx.close();
+        const pct = Math.round(this.micTest.peak * 100);
+        this.micTest.msg =
+          this.micTest.peak >= 0.02
+            ? `听到了，峰值 ${pct}%——这个麦克风能用`
+            : `全程没有声音（峰值 ${pct}%），换一个设备再试`;
+      } catch (e) {
+        this.micTest.msg = "打不开麦克风：" + (e.message || e);
+      } finally {
+        if (stream) stream.getTracks().forEach((t) => t.stop());
+        this.micTest.on = false;
+      }
+    },
