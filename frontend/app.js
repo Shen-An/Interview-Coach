@@ -827,3 +827,34 @@ const app = createApp({
         this.micTest.msg = "拿不到设备列表：" + (e.message || e);
       }
     },
+    onMicPick(id) {
+      this.micId = id || "";
+      if (this.micId) localStorage.setItem("ic_mic", this.micId);
+      else localStorage.removeItem("ic_mic");
+      this.micTest.msg = "";
+      this.micTest.peak = 0;
+    },
+    async testMic() {
+      if (this.micTest.on) return;
+      this.micTest.on = true;
+      this.micTest.peak = 0;
+      this.micTest.msg = "对着麦克风说句话…";
+      let stream;
+      try {
+        stream = await this.openMicStream();
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new Ctx();
+        const an = ctx.createAnalyser();
+        an.fftSize = 512;
+        ctx.createMediaStreamSource(stream).connect(an);
+        const buf = new Uint8Array(an.frequencyBinCount);
+        const t0 = Date.now();
+        await new Promise((done) => {
+          const tick = () => {
+            an.getByteFrequencyData(buf);
+            let all = 0;
+            for (let j = 0; j < buf.length; j++) all += buf[j];
+            this.micTest.peak = Math.max(this.micTest.peak, all / buf.length / 255);
+            if (Date.now() - t0 > 4000) return done();
+            requestAnimationFrame(tick);
+          };
