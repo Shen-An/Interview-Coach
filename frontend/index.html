@@ -496,3 +496,23 @@
           <article class="dossier" v-html="reportHtml"></article>
         </div>
       </template>
+
+      <div v-else class="empty-state">
+        <el-icon class="empty-ico"><icon-data-analysis></icon-data-analysis></el-icon>
+        <h2>本场还没有复盘</h2>
+        <p class="dim">面试结束后自动生成五维评分和扣分点回放</p>
+        <el-button type="primary" @click="nav('prep')">去面一场</el-button>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ───────── 复盘回看 ───────── -->
+  <el-dialog v-model="showHistory" :title="historyTitle" width="760" class="history-dialog" append-to-body>
+    <article class="dossier his-dossier" v-html="historyHtml"></article>
+  </el-dialog>
+
+  <!-- ───────── 设置 ───────── -->
+  <el-dialog v-model="showSettings" title="设置" width="540" class="settings-dialog"
+             :close-on-click-modal="false" append-to-body>
+    <el-form label-position="top" class="settings-form">
