@@ -873,3 +873,17 @@ const app = createApp({
         this.micTest.on = false;
       }
     },
+    warnSilentMic(peak) {
+      const cur = this.mics.find((m) => m.id === this.micId);
+      ElMessageBox.alert(
+        `这段录音全程没有声音（峰值 ${Math.round(peak * 100)}%），不是没识别出来，是根本没采到。<br><br>` +
+        `当前设备：<b>${cur ? cur.label : "系统默认"}</b><br><br>` +
+        "常见原因：<br>" +
+        "• <b>蓝牙耳机</b>：麦克风只在「免提/Hands-Free」端点上，选带 Hands-Free 字样的那个<br>" +
+        "• 系统默认输入是空插孔或虚拟声卡（如虚拟音频设备），录出来就是静音<br>" +
+        "• 麦克风被系统静音，或 Windows 隐私设置里没放开麦克风权限<br><br>" +
+        "去「设置 → 语音转写 → 麦克风」挑一个，用旁边的测试按钮确认能看到电平。",
+        "没采到声音",
+        { dangerouslyUseHTMLString: true, confirmButtonText: "去设置" }
+      ).then(() => this.openSettings()).catch(() => {});
+    },
