@@ -664,3 +664,31 @@ html.light .mic.rec { color: #A63835; background: rgba(201, 79, 76, .1); }
 .report-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 2px 20px; }
 
 /* 评分卡：把总分和五维从正文里提出来先看见 */
+.scorecard {
+  display: flex; gap: 26px; align-items: center;
+  background: var(--ink-900); border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg); padding: 20px 24px; margin-bottom: 20px;
+}
+.total { position: relative; flex: none; display: grid; place-items: center; }
+.total .el-progress { grid-area: 1 / 1; }
+.total-inner {
+  grid-area: 1 / 1; display: flex; flex-direction: column; align-items: center; line-height: 1;
+}
+.total-num { font-size: 2.5rem; letter-spacing: -.03em; }
+.total-den { font-size: .6875rem; color: var(--text-faint); margin-top: 5px; }
+
+.dims { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 9px; }
+.grade-line { display: flex; align-items: baseline; gap: 10px; margin-bottom: 3px; flex-wrap: wrap; }
+.grade-line .small { margin-left: auto; }
+.grade { font-size: 1.375rem; font-weight: 700; letter-spacing: .01em; }
+.grade-note { font-size: .875rem; color: var(--text-dim); }
+
+.dim-row { display: grid; grid-template-columns: 14px minmax(92px, max-content) minmax(120px, 420px) auto 1fr; align-items: center; gap: 10px; font-size: .8125rem; }
+.dim-key { color: var(--text-faint); font-size: .6875rem; }
+.dim-name { color: var(--text-dim); white-space: nowrap; }
+.dim-bar { height: 5px; background: var(--ink-700); border-radius: 3px; overflow: hidden; }
+.dim-bar i { display: block; height: 100%; border-radius: 3px; transition: width .5s cubic-bezier(.22,.8,.3,1); }
+.dim-score { color: var(--text); white-space: nowrap; }
+.dim-score em { font-style: normal; color: var(--text-faint); font-size: .75rem; }
+
+/* 档案正文 */
