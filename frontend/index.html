@@ -516,3 +516,18 @@
   <el-dialog v-model="showSettings" title="设置" width="540" class="settings-dialog"
              :close-on-click-modal="false" append-to-body>
     <el-form label-position="top" class="settings-form">
+      <el-form-item label="对话模型提供商">
+        <el-segmented v-model="st.LLM_PROVIDER" :options="providerOpts" block></el-segmented>
+      </el-form-item>
+
+      <template v-if="st.LLM_PROVIDER === 'openai'">
+        <el-form-item label="OpenAI API Key">
+          <el-input v-model="st.OPENAI_API_KEY" type="password" show-password placeholder="sk-..."></el-input>
+        </el-form-item>
+        <el-form-item label="模型">
+          <el-input v-model="st.OPENAI_MODEL" placeholder="gpt-5"></el-input>
+        </el-form-item>
+        <el-form-item label="Base URL">
+          <el-input v-model="st.OPENAI_BASE_URL" placeholder="第三方兼容网关才填，如 https://api.xxx.com/v1"></el-input>
+        </el-form-item>
+      </template>
