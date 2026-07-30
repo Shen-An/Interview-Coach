@@ -692,3 +692,17 @@ html.light .mic.rec { color: #A63835; background: rgba(201, 79, 76, .1); }
 .dim-score em { font-style: normal; color: var(--text-faint); font-size: .75rem; }
 
 /* 档案正文 */
+.dossier {
+  background: var(--ink-900); border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg); padding: 26px 30px;
+  line-height: 1.78; font-size: .9375rem; color: #CFDCDF;
+}
+html.light .dossier { color: #33474F; }
+/* 卡片与上面的评分卡同宽，但正文行长仍收在易读区间内 */
+.dossier p, .dossier li, .dossier blockquote { max-width: 68ch; }
+.dossier > :first-child { margin-top: 0; }
+.dossier h1 { font-size: 1.375rem; margin: 0 0 14px; letter-spacing: -.01em; color: var(--text); }
+.dossier h2 {
+  font-size: 1.0625rem; margin: 26px 0 10px; padding-top: 14px;
+  border-top: 1px solid var(--line-soft); color: var(--text);
+}
