@@ -887,3 +887,35 @@ const app = createApp({
         { dangerouslyUseHTMLString: true, confirmButtonText: "去设置" }
       ).then(() => this.openSettings()).catch(() => {});
     },
+
+    /* ---------- MediaRecorder 通路（Electron / 无 Web Speech API 的浏览器）---------- */
+    async startRecorder() {
+      this.stopTTS();
+      try {
+        const stream = await this.openMicStream();
+        const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
+        this._chunks = [];
+        this._peak = 0;               // 这一段录音的最大电平，用来分辨「没说话」和「选错麦克风」
+        mr.ondataavailable = (e) => e.data.size && this._chunks.push(e.data);
+        this._media = mr;
+        this.recording = true;
+        mr.start();
+        // 这条通路没有实时文字，音量表是唯一的「她听到我了」反馈，所以用真实电平
+        this.startMeter(stream);
+      } catch (e) {
+        ElMessage.error("无法访问麦克风：" + e.message);
+      }
+    },
+    /* ---------- 转写后处理：语音输入过一遍对话模型，修同音错字和术语 ----------
+       只走语音路径，打字输入不碰。任何失败都原样返回，绝不让它挡住作答。 */
+    async polish(text) {
+      const t = (text || "").trim();
+      if (!t || this.cfg.stt_rewrite === false) return t;
+      this.polishing = true;
+      try {
+        const r = await fetch("/api/rewrite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: t, session_id: this.sessionId || "" }),
+        });
+        if (!r.ok) return t;
