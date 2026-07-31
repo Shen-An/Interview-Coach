@@ -719,3 +719,31 @@ html.light .dossier { color: #33474F; }
   font-variant-numeric: tabular-nums;
 }
 .dossier th, .dossier td { border: 1px solid var(--line-soft); padding: 8px 11px; text-align: left; }
+.dossier th {
+  background: var(--ink-800); color: var(--text-dim); font-weight: 600;
+  font-size: .75rem; letter-spacing: .04em;
+}
+.dossier code {
+  font-family: var(--font-mono); font-size: .8125rem;
+  background: var(--ink-800); color: var(--signal-hi);
+  padding: 1px 5px; border-radius: 4px;
+}
+.dossier pre {
+  background: var(--ink-950); border: 1px solid var(--line-soft); border-radius: var(--r-md);
+  padding: 13px 15px; overflow-x: auto; margin: 12px 0;
+}
+.dossier pre code { background: none; padding: 0; color: #C3D0D4; }
+html.light .dossier pre code { color: #33474F; }
+html.light .dossier code { color: var(--signal-hi); }
+.dossier blockquote {
+  border-left: 2px solid var(--signal); background: var(--signal-wash);
+  padding: 10px 14px; margin: 12px 0; border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  color: var(--text-dim);
+}
+.dossier blockquote p { margin: 4px 0; }
+
+/* ============================================================
+   设置弹窗
+   ============================================================ */
+html.dark .settings-dialog, html.light .settings-dialog { border: 1px solid var(--line); border-radius: var(--r-lg); }
+html.dark .settings-dialog .el-dialog__title, html.light .settings-dialog .el-dialog__title { font-size: 1rem; font-weight: 600; }
