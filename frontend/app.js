@@ -919,3 +919,11 @@ const app = createApp({
           body: JSON.stringify({ text: t, session_id: this.sessionId || "" }),
         });
         if (!r.ok) return t;
+        const d = await r.json();
+        return d.text || t;
+      } catch {
+        return t;
+      } finally {
+        this.polishing = false;
+      }
+    },
