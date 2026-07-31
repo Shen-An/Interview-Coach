@@ -549,3 +549,28 @@
       </div>
 
       <el-divider content-position="left">语音转写</el-divider>
+      <el-form-item label="麦克风">
+        <div class="mic-pick">
+          <el-select :model-value="micId" @change="onMicPick" placeholder="系统默认输入设备"
+                     clearable filterable class="mic-select">
+            <el-option v-for="m in mics" :key="m.id" :label="m.label" :value="m.id"></el-option>
+          </el-select>
+          <el-button size="small" :loading="micTest.on" @click="testMic">
+            {{ micTest.on ? '说话中…' : '测试麦克风' }}
+          </el-button>
+        </div>
+      </el-form-item>
+      <p v-if="micTest.msg" class="form-note mic-test-msg">{{ micTest.msg }}</p>
+      <p class="form-note">台式机没有内置麦克风时，这里要挑对设备。<b>蓝牙耳机</b>的麦克风只挂在
+        「免提 / Hands-Free」那个端点上（另一个只有声音输出没有麦克风），选带 Hands-Free 字样的；
+        虚拟声卡（各类虚拟音频设备）录出来是静音，别选。选完点测试，能看到峰值百分比才算通。</p>
+      <p class="form-note">exe 版「你说话」走这个接口，whisper 兼容即可。留空则复用上面的 OpenAI Key。<br>
+        没有 key？国内推荐<b>硅基流动</b>（siliconflow.cn 注册即送额度）：Base URL 填
+        <code>https://api.siliconflow.cn/v1</code>，模型填 <code>FunAudioLLM/SenseVoiceSmall</code>（免费）。
+        用 OpenAI 中转站的话 Base URL 填中转站地址（带 /v1），模型 <code>whisper-1</code> 或 <code>gpt-4o-mini-transcribe</code>。</p>
+      <el-form-item label="转写 API Key">
+        <el-input v-model="st.STT_API_KEY" type="password" show-password placeholder="留空 = 复用 OpenAI Key"></el-input>
+      </el-form-item>
+      <el-form-item label="转写 Base URL">
+        <el-input v-model="st.STT_BASE_URL" placeholder="如 https://api.siliconflow.cn/v1"></el-input>
+      </el-form-item>
