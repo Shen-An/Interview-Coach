@@ -706,3 +706,16 @@ html.light .dossier { color: #33474F; }
   font-size: 1.0625rem; margin: 26px 0 10px; padding-top: 14px;
   border-top: 1px solid var(--line-soft); color: var(--text);
 }
+.dossier h3 { font-size: .9375rem; margin: 18px 0 6px; color: var(--signal); }
+.dossier p { margin: 9px 0; }
+.dossier ol, .dossier ul { margin: 9px 0 9px 1.3em; }
+.dossier li { margin: 6px 0; }
+.dossier li::marker { color: var(--signal); font-family: var(--font-mono); font-size: .8125rem; }
+.dossier strong { color: var(--text); font-weight: 600; }
+.dossier hr { border: 0; border-top: 1px solid var(--line-soft); margin: 20px 0; }
+
+.dossier table {
+  border-collapse: collapse; width: 100%; margin: 12px 0; font-size: .875rem;
+  font-variant-numeric: tabular-nums;
+}
+.dossier th, .dossier td { border: 1px solid var(--line-soft); padding: 8px 11px; text-align: left; }
