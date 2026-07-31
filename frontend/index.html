@@ -531,3 +531,21 @@
           <el-input v-model="st.OPENAI_BASE_URL" placeholder="第三方兼容网关才填，如 https://api.xxx.com/v1"></el-input>
         </el-form-item>
       </template>
+      <template v-else>
+        <el-form-item label="Anthropic API Key">
+          <el-input v-model="st.ANTHROPIC_API_KEY" type="password" show-password placeholder="sk-ant-...（中转站的 key 也填这里）"></el-input>
+        </el-form-item>
+        <el-form-item label="模型">
+          <el-input v-model="st.ANTHROPIC_MODEL" placeholder="claude-opus-5"></el-input>
+        </el-form-item>
+        <el-form-item label="Base URL">
+          <el-input v-model="st.ANTHROPIC_BASE_URL" placeholder="中转站才填，如 https://api.xxx.com（不带 /v1，留空走官方）"></el-input>
+        </el-form-item>
+      </template>
+
+      <div class="test-row">
+        <el-button size="small" :loading="testing.llm" @click="testLlm">保存并测试对话</el-button>
+        <span :class="['test-msg', testOk.llm ? 'ok' : 'bad']">{{ testMsg.llm }}</span>
+      </div>
+
+      <el-divider content-position="left">语音转写</el-divider>
