@@ -927,3 +927,35 @@ const app = createApp({
         this.polishing = false;
       }
     },
+
+    stopRecorder(send) {
+      const mr = this._media;
+      if (!mr) return;
+      this._media = null;
+      this.recording = false;
+      this.stopMeter();
+      mr.onstop = async () => {
+        mr.stream.getTracks().forEach((t) => t.stop());
+        if (!send) return;
+        const blob = new Blob(this._chunks, { type: "audio/webm" });
+        this._chunks = [];
+        const peak = this._peak || 0;
+        // 全程没有电平 = 麦克风选错了或被静音，跟「说了但没识别出来」是两回事
+        if (peak < 0.02 || blob.size < 1000) return this.warnSilentMic(peak);
+        this.transcribing = true;
+        try {
+          const fd = new FormData();
+          fd.append("file", blob, "answer.webm");
+          const r = await fetch("/api/stt", { method: "POST", body: fd });
+          if (!r.ok) throw new Error((await r.json()).detail);
+          const d = await r.json();
+          if (d.text) {
+            const fixed = await this.polish(d.text);
+            this.draft = (this.draft ? this.draft + " " : "") + fixed;
+            this.sendDraft();
+          } else {
+            ElMessage.warning("没识别到内容，再说一次或者直接打字");
+          }
+        } catch (e) {
+          ElMessage.error("转写失败：" + e.message + "，可以改用打字回答");
+        } finally {
