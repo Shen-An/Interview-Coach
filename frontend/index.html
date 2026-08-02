@@ -574,3 +574,19 @@
       <el-form-item label="转写 Base URL">
         <el-input v-model="st.STT_BASE_URL" placeholder="如 https://api.siliconflow.cn/v1"></el-input>
       </el-form-item>
+      <el-form-item label="转写模型">
+        <el-input v-model="st.STT_MODEL" placeholder="gpt-4o-mini-transcribe"></el-input>
+      </el-form-item>
+
+      <el-form-item label="识别后修正">
+        <el-switch v-model="st.STT_REWRITE" active-value="on" inactive-value="off"></el-switch>
+      </el-form-item>
+      <p class="form-note">开启后，每次<b>语音</b>输入都用上面的对话模型顺一遍：结合面试官刚问的问题和你的简历，
+        把识别错的技术术语修回来（「从盘卡」→ cross-encoder、「叶子为」→ if-else）。
+        <b>只纠错，不润色</b>——「呃/就是/我我我」这些会原样保留，因为复盘的「关键扣分点」要引用你的原话，
+        抹平了就看不出表达问题。打字输入不受影响。代价是每次作答多一次模型调用，慢一两秒。</p>
+
+      <div class="test-row">
+        <el-button size="small" :loading="testing.stt" @click="testStt">保存并测试转写</el-button>
+        <span :class="['test-msg', testOk.stt ? 'ok' : 'bad']">{{ testMsg.stt }}</span>
+      </div>
