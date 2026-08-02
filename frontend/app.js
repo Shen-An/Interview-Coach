@@ -959,3 +959,10 @@ const app = createApp({
         } catch (e) {
           ElMessage.error("转写失败：" + e.message + "，可以改用打字回答");
         } finally {
+          this.transcribing = false;
+        }
+      };
+      mr.stop();
+    },
+
+    /* ---------- 音量表（只在拿到音频流时用真实电平） ---------- */
