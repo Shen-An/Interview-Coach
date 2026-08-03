@@ -747,3 +747,29 @@ html.light .dossier code { color: var(--signal-hi); }
    ============================================================ */
 html.dark .settings-dialog, html.light .settings-dialog { border: 1px solid var(--line); border-radius: var(--r-lg); }
 html.dark .settings-dialog .el-dialog__title, html.light .settings-dialog .el-dialog__title { font-size: 1rem; font-weight: 600; }
+.settings-form .el-form-item { margin-bottom: 14px; }
+.settings-form .el-segmented { width: 100%; }
+.settings-form .el-form-item__label {
+  font-family: var(--font-mono); font-size: .6875rem; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-dim); padding-bottom: 5px !important;
+}
+.form-note { font-size: .75rem; color: var(--text-faint); line-height: 1.6; margin: -4px 0 12px; }
+.test-row { display: flex; align-items: flex-start; gap: 10px; margin: 2px 0 6px; min-height: 24px; }
+.test-row .el-button { flex: none; }
+.test-msg { font-size: .75rem; line-height: 1.5; word-break: break-word; padding-top: 4px; }
+.test-msg.ok { color: var(--ok); }
+.test-msg.bad { color: var(--warn); }
+.open-links {
+  display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
+  margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--line-soft);
+}
+.dialog-foot { display: flex; align-items: center; gap: 10px; }
+.save-msg { margin-right: auto; font-size: .8125rem; }
+.save-msg.ok { color: var(--ok); }
+.save-msg.bad { color: var(--warn); }
+
+/* ============================================================
+   滚动条 / 焦点 / 减弱动效
+   ============================================================ */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
