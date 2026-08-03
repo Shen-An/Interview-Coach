@@ -966,3 +966,34 @@ const app = createApp({
     },
 
     /* ---------- 音量表（只在拿到音频流时用真实电平） ---------- */
+    startMeter(stream) {
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx || !stream) return;
+        const ctx = new Ctx();
+        const an = ctx.createAnalyser();
+        an.fftSize = 512;
+        an.smoothingTimeConstant = 0.72;
+        ctx.createMediaStreamSource(stream).connect(an);
+        const buf = new Uint8Array(an.frequencyBinCount);
+        const edges = [0, 0.08, 0.18, 0.34, 0.58, 1];
+        this._actx = ctx;
+        this.meterLive = true;
+        const tick = () => {
+          if (!this.recording) return;
+          an.getByteFrequencyData(buf);
+          const n = buf.length;
+          let all = 0;
+          for (let j = 0; j < n; j++) all += buf[j];
+          this._peak = Math.max(this._peak || 0, all / n / 255);
+          this.meterBars = edges.slice(0, 5).map((_, i) => {
+            const a = Math.floor(edges[i] * n);
+            const b = Math.max(a + 1, Math.floor(edges[i + 1] * n));
+            let sum = 0;
+            for (let j = a; j < b; j++) sum += buf[j];
+            return Math.max(0.16, Math.min(1, sum / (b - a) / 105));
+          });
+          this._raf = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch {
