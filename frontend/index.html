@@ -590,3 +590,28 @@
         <el-button size="small" :loading="testing.stt" @click="testStt">保存并测试转写</el-button>
         <span :class="['test-msg', testOk.stt ? 'ok' : 'bad']">{{ testMsg.stt }}</span>
       </div>
+
+      <el-divider content-position="left">面试官音色</el-divider>
+      <p class="form-note"><b>全部留空 = 免费的微软云端男声</b>（云希，Edge 浏览器同款神经网络音，效果远好于系统自带，按厂风格自动调语速语调）。想换别的免费男声，音色栏填
+        <code>zh-CN-YunjianNeural</code>（低沉）或 <code>zh-CN-YunyangNeural</code>（播音腔）。<br>
+        要更自然的付费音：填 OpenAI 兼容 /audio/speech 的 key（留空 Key 复用上面的 OpenAI Key），模型
+        <code>gpt-4o-mini-tts</code> + 音色 <code>onyx</code>；或硅基流动 <code>FunAudioLLM/CosyVoice2-0.5B</code> +
+        <code>FunAudioLLM/CosyVoice2-0.5B:benjamin</code>。</p>
+      <el-form-item label="合成 API Key">
+        <el-input v-model="st.TTS_API_KEY" type="password" show-password placeholder="留空 = 复用 OpenAI Key"></el-input>
+      </el-form-item>
+      <el-form-item label="合成 Base URL">
+        <el-input v-model="st.TTS_BASE_URL" placeholder="第三方兼容网关才填"></el-input>
+      </el-form-item>
+      <el-form-item label="合成模型">
+        <el-input v-model="st.TTS_MODEL" placeholder="gpt-4o-mini-tts"></el-input>
+      </el-form-item>
+      <el-form-item label="音色">
+        <el-input v-model="st.TTS_VOICE" placeholder="onyx（深沉男声）/ echo / alloy"></el-input>
+      </el-form-item>
+
+      <div class="test-row">
+        <el-button size="small" :loading="testing.tts" @click="testTts">保存并试听</el-button>
+        <span :class="['test-msg', testOk.tts ? 'ok' : 'bad']">{{ testMsg.tts }}</span>
+      </div>
+    </el-form>
