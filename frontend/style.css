@@ -773,3 +773,31 @@ html.dark .settings-dialog .el-dialog__title, html.light .settings-dialog .el-di
    ============================================================ */
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #23343A; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: #33484F; background-clip: content-box; }
+html.light ::-webkit-scrollbar-thumb { background: #B9C8CD; background-clip: content-box; }
+html.light ::-webkit-scrollbar-thumb:hover { background: #9BAFB6; background-clip: content-box; }
+
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; border-radius: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+
+/* ---------- 窄屏 ---------- */
+@media (max-width: 1000px) {
+  .wb-grid { grid-template-columns: 1fr; }
+  .stat-strip { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 860px) {
+  /* 侧栏收成图标轨 */
+  .side { width: 64px; padding: 14px 8px 12px; align-items: center; }
+  .brand-text, .nav-label, .nav-badge, .side-model-name { display: none; }
+  .side-brand { padding: 4px 0 14px; }
+  .nav-item { justify-content: center; padding: 0; width: 44px; }
+  .side-nav { width: 100%; align-items: center; }
+  .nav-dot { position: absolute; margin-left: 26px; margin-top: -14px; }
+  .side-model { justify-content: center; }
+  .side-foot { align-items: center; }
+  .side-acts { flex-direction: column; }
+}
