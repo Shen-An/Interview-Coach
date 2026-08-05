@@ -997,3 +997,18 @@ const app = createApp({
         };
         tick();
       } catch {
+        this.meterLive = false; // 表坏了不影响录音
+      }
+    },
+    stopMeter() {
+      if (this._raf) cancelAnimationFrame(this._raf);
+      this._raf = null;
+      this.meterBars = [0.16, 0.16, 0.16, 0.16, 0.16];
+      this.meterLive = false;
+      if (this._actx) {
+        try {
+          this._actx.close();
+        } catch {}
+        this._actx = null;
+      }
+    },
