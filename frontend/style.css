@@ -801,3 +801,33 @@ html.light ::-webkit-scrollbar-thumb:hover { background: #9BAFB6; background-cli
   .side-foot { align-items: center; }
   .side-acts { flex-direction: column; }
 }
+@media (max-width: 720px) {
+  .panel { padding: 14px; }
+  .field-pair { grid-template-columns: 1fr; }
+  .hero-card { flex-direction: column; align-items: stretch; }
+  .hero-cta { align-items: stretch; }
+  .stat-strip { grid-template-columns: 1fr; }
+  .scorecard { flex-direction: column; align-items: stretch; gap: 18px; }
+  .total { justify-self: center; }
+  .composer-main { flex-wrap: wrap; }
+  .mic { flex: 1; }
+  .msg { max-width: 92%; }
+  .dossier { padding: 20px 18px; }
+}
+
+/* 情报站点/链接 */
+.intel-sites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.intel-links { margin-top: 12px; }
+.intel-links ul { margin: 0; padding-left: 18px; }
+.intel-links li { margin: 4px 0; word-break: break-all; }
+
+/* 设置里的麦克风选择 */
+.mic-pick { display: flex; gap: 8px; width: 100%; }
+.mic-pick .mic-select { flex: 1; min-width: 0; }
+.mic-test-msg { margin-top: -6px; }
