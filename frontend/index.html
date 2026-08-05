@@ -615,3 +615,33 @@
         <span :class="['test-msg', testOk.tts ? 'ok' : 'bad']">{{ testMsg.tts }}</span>
       </div>
     </el-form>
+
+    <div v-if="isElectron" class="open-links">
+      <span class="dim small">本机文件：</span>
+      <el-button link size="small" @click="icOpen('env')">配置文件</el-button>
+      <el-button link size="small" @click="icOpen('sessions')">面试记录</el-button>
+      <el-button link size="small" @click="icOpen('kb')">知识库</el-button>
+      <el-button link size="small" @click="icOpen('log')">后端日志</el-button>
+    </div>
+
+    <template #footer>
+      <div class="dialog-foot">
+        <span :class="['save-msg', saveOk ? 'ok' : 'bad']">{{ saveMsg }}</span>
+        <el-button @click="showSettings = false">取消</el-button>
+        <el-button type="primary" :loading="savingSettings" @click="saveSettings">保存并生效</el-button>
+      </div>
+    </template>
+  </el-dialog>
+
+</div>
+</el-config-provider>
+</div>
+
+<script src="/static/vendor/vue.global.prod.js"></script>
+<script src="/static/vendor/element-plus.full.min.js"></script>
+<script src="/static/vendor/element-plus-locale-zhcn.min.js"></script>
+<script src="/static/vendor/element-plus-icons.iife.min.js"></script>
+<script src="/static/vendor/marked.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
