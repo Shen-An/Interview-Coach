@@ -1012,3 +1012,21 @@ const app = createApp({
         this._actx = null;
       }
     },
+
+    scrollDown() {
+      this.$nextTick(() => {
+        const el = this.$refs.chatBox;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+    },
+  },
+});
+
+app.use(ElementPlus, ZH_CN ? { locale: ZH_CN } : {});
+// 图标统一加 Icon 前缀：在 DOM 内模板里 <icon-setting> 不会和真实标签名撞车
+if (window.ElementPlusIconsVue) {
+  for (const [name, comp] of Object.entries(window.ElementPlusIconsVue)) {
+    app.component("Icon" + name, comp);
+  }
+}
+app.mount("#app");
