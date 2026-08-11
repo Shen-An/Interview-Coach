@@ -18,3 +18,32 @@ function resDir() {
   // 打包后 kb/frontend/.env.example 在 resources/app-res；开发时用仓库根目录
   return isDev ? path.join(__dirname, "..") : path.join(process.resourcesPath, "app-res");
 }
+function dataDir() {
+  return isDev ? path.join(__dirname, "..") : app.getPath("userData");
+}
+function logPath() {
+  return path.join(dataDir(), "backend.log");
+}
+
+function appendLog(chunk) {
+  const line = String(chunk).trim();
+  if (!line) return;
+  recentLog.push(line);
+  while (recentLog.length > 20) recentLog.shift();
+  try { logStream?.write(line + "\n"); } catch {}
+}
+
+// 找一个系统分配的空闲端口
+function pickFreePort() {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.once("error", reject);
+    srv.listen(0, "127.0.0.1", () => {
+      const port = srv.address().port;
+      srv.close(() => resolve(port));
+    });
+  });
+}
+
+function startBackend() {
+  if (!isDev) {
