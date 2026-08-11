@@ -12,3 +12,34 @@
     "electron": "33.2.0",
     "electron-builder": "25.1.8"
   },
+  "build": {
+    "appId": "com.interviewcoach.app",
+    "productName": "InterviewCoach",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist-backend/interview-coach-backend.exe",
+        "to": "app-res/interview-coach-backend.exe"
+      },
+      {
+        "from": "kb",
+        "to": "app-res/kb"
+      },
+      {
+        "from": "frontend",
+        "to": "app-res/frontend"
+      },
+      {
+        "from": ".env.example",
+        "to": "app-res/.env.example"
+      }
+    ],
+    "win": {
+      "target": [
+        {
