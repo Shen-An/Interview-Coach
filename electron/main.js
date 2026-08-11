@@ -72,3 +72,14 @@ function startBackend() {
   backendProc.stdout?.on("data", appendLog);
   backendProc.stderr?.on("data", appendLog);
   backendProc.on("exit", (code) => {
+    if (code && !app.isQuitting) {
+      dialog.showErrorBox(
+        "后端异常退出",
+        `exit code ${code}\n\n最近输出：\n${recentLog.slice(-6).join("\n") || "（无）"}\n\n完整日志：${logPath()}`
+      );
+    }
+  });
+}
+
+function waitForBackend(retries = 60) {
+  return new Promise((resolve, reject) => {
