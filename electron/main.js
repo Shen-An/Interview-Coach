@@ -47,3 +47,28 @@ function pickFreePort() {
 
 function startBackend() {
   if (!isDev) {
+    // 清掉升级/崩溃后残留的旧后端进程
+    try {
+      require("child_process").execSync("taskkill /IM interview-coach-backend.exe /F", {
+        stdio: "ignore",
+      });
+    } catch {}
+  }
+  try {
+    logStream = fs.createWriteStream(logPath(), { flags: "w" });
+  } catch {}
+  const env = {
+    ...process.env,
+    IC_PORT: String(PORT),
+    IC_RES_DIR: resDir(),
+    IC_DATA_DIR: dataDir(),
+  };
+  if (isDev) {
+    backendProc = spawn("python", ["run_backend.py"], { cwd: path.join(__dirname, ".."), env });
+  } else {
+    const exe = path.join(process.resourcesPath, "app-res", "interview-coach-backend.exe");
+    backendProc = spawn(exe, [], { env, windowsHide: true });
+  }
+  backendProc.stdout?.on("data", appendLog);
+  backendProc.stderr?.on("data", appendLog);
+  backendProc.on("exit", (code) => {
