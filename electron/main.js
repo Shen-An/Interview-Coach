@@ -100,3 +100,27 @@ function waitForBackend(retries = 60) {
     tick(retries);
   });
 }
+
+function createTray() {
+  const icon = nativeImage.createFromPath(path.join(__dirname, "icon.ico"));
+  tray = new Tray(icon);
+  tray.setToolTip("Interview Coach · 模拟面试");
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "显示主界面", click: () => showWin() },
+      { type: "separator" },
+      { label: "打开配置文件 (.env)", click: () => shell.openPath(path.join(dataDir(), ".env")) },
+      { label: "打开面试记录文件夹", click: () => shell.openPath(path.join(dataDir(), "sessions")) },
+      { label: "打开知识库文件夹", click: () => shell.openPath(path.join(dataDir(), "kb")) },
+      { type: "separator" },
+      {
+        label: "退出",
+        click: () => {
+          app.isQuitting = true;
+          app.quit();
+        },
+      },
+    ])
+  );
+  tray.on("click", () => showWin());
+}
