@@ -83,3 +83,20 @@ function startBackend() {
 
 function waitForBackend(retries = 60) {
   return new Promise((resolve, reject) => {
+    const tick = (left) => {
+      if (backendProc && backendProc.exitCode !== null) {
+        return reject(new Error(`后端启动即退出（exit code ${backendProc.exitCode}），日志：${logPath()}`));
+      }
+      const req = http.get(`http://127.0.0.1:${PORT}/api/config`, (res) => {
+        res.resume();
+        resolve();
+      });
+      req.on("error", () => {
+        if (left <= 0) return reject(new Error(`后端启动超时，日志：${logPath()}`));
+        setTimeout(() => tick(left - 1), 500);
+      });
+      req.setTimeout(1000, () => req.destroy());
+    };
+    tick(retries);
+  });
+}
