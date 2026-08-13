@@ -170,3 +170,24 @@ function createWindow() {
     if (app.isQuitting) return;
     e.preventDefault();
     win.hide();
+    if (!trayTipShown && tray) {
+      trayTipShown = true;
+      tray.displayBalloon({
+        title: "Interview Coach 还在托盘里",
+        content: "点托盘图标回来继续面试，右键「退出」才是真的退出。",
+        iconType: "info",
+      });
+    }
+  });
+
+  win.loadURL(`http://127.0.0.1:${PORT}/`);
+}
+
+// 应用内「打开文件夹/文件」入口（settings 弹窗里的链接走这里）
+ipcMain.handle("ic:open", (e, what) => {
+  const map = {
+    env: path.join(dataDir(), ".env"),
+    sessions: path.join(dataDir(), "sessions"),
+    kb: path.join(dataDir(), "kb"),
+    log: logPath(),
+  };
