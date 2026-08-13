@@ -143,3 +143,30 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
     },
   });
+
+  // 原生菜单栏在应用里既丑又多余：入口都在应用内（设置弹窗 / 托盘菜单）
+  Menu.setApplicationMenu(null);
+
+  // 没有菜单后保留必要快捷键：F12 开发者工具，F5 / Ctrl+R 刷新
+  win.webContents.on("before-input-event", (e, input) => {
+    if (input.type !== "keyDown") return;
+    if (input.key === "F12") {
+      win.webContents.toggleDevTools();
+      e.preventDefault();
+    } else if (input.key === "F5" || (input.control && input.key.toLowerCase() === "r")) {
+      win.webContents.reload();
+      e.preventDefault();
+    }
+  });
+
+  // 自动允许麦克风（本地应用，无需弹窗）
+  session.defaultSession.setPermissionRequestHandler((wc, permission, cb) => {
+    cb(["media", "audioCapture", "speaker-selection"].includes(permission));
+  });
+
+  // 关窗 = 收进托盘继续挂着；真正退出走托盘菜单
+  let trayTipShown = false;
+  win.on("close", (e) => {
+    if (app.isQuitting) return;
+    e.preventDefault();
+    win.hide();
