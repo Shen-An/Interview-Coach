@@ -124,3 +124,22 @@ function createTray() {
   );
   tray.on("click", () => showWin());
 }
+
+function showWin() {
+  if (!win) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}
+
+function createWindow() {
+  win = new BrowserWindow({
+    width: 980,
+    height: 760,
+    title: "Interview Coach",
+    icon: path.join(__dirname, "icon.ico"),
+    webPreferences: {
+      contextIsolation: true,
+      preload: path.join(__dirname, "preload.js"),
+    },
+  });
