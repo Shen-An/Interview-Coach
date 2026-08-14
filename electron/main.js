@@ -191,3 +191,33 @@ ipcMain.handle("ic:open", (e, what) => {
     kb: path.join(dataDir(), "kb"),
     log: logPath(),
   };
+  const target = map[what];
+  if (target) shell.openPath(target);
+});
+
+// 单实例：托盘挂着时再点桌面图标，唤起已有窗口而不是再开一个
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => showWin());
+
+  app.whenReady().then(async () => {
+    try {
+      PORT = await pickFreePort();
+    } catch {
+      PORT = 47821; // 挑端口本身失败的概率极低，兜底回冷门默认端口（8321 已被用户的常驻应用占用）
+    }
+    startBackend();
+    createTray();
+    try {
+      await waitForBackend();
+    } catch (e) {
+      dialog.showErrorBox("启动失败", String(e.message || e));
+    }
+    createWindow();
+  });
+}
+
+app.on("before-quit", () => {
+  app.isQuitting = true;
