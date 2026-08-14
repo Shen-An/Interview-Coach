@@ -221,3 +221,9 @@ if (!gotLock) {
 
 app.on("before-quit", () => {
   app.isQuitting = true;
+  if (backendProc) {
+    try { backendProc.kill(); } catch {}
+  }
+});
+
+app.on("window-all-closed", () => app.quit());
