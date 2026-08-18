@@ -90,3 +90,27 @@ interview-coach/
 - 所有配置在应用内「设置」里填，保存即生效；`.env`、面试记录、知识库、后端日志可从「设置」弹窗底部或托盘右键菜单直达
 - 关闭窗口 = 收进系统托盘（右键托盘图标「退出」才真正退出）；右上角 ☀/🌙 切换日间/夜间主题
 - 后端端口每次启动动态分配，不会再和其它程序抢端口；异常时看 `%APPDATA%\interview-coach\backend.log`
+
+### exe 版语音说明
+
+Electron 里浏览器内置语音识别不可用（缺 Google 服务密钥），因此 exe 版：
+- **识别（你说话）**：MediaRecorder 录音 → OpenAI 转写 API（需在 .env 配 `OPENAI_API_KEY`，模型默认 `gpt-4o-mini-transcribe`，可用 `OPENAI_BASE_URL` 走兼容网关）
+- **朗读（她说话）**：Windows 本地语音，正常可用
+- 浏览器版（`python start.py`）不受影响，识别仍走免费 Web Speech API
+
+### 重新构建
+
+```bash
+# 1) 干净 venv 打后端（避免 Anaconda 环境污染）
+python -m venv build-venv
+build-venv\Scripts\pip install -r requirements.txt pyinstaller
+build-venv\Scripts\pyinstaller --onefile --name interview-coach-backend ^
+  --distpath dist-backend --workpath build-pyi --specpath build-pyi ^
+  --add-binary "E:/Coding/Anaconda/Library/bin/ffi-8.dll;." ^
+  --add-binary "E:/Coding/Anaconda/Library/bin/ffi.dll;." run_backend.py
+
+# 2) Electron 安装包（国内走镜像）
+set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
+npm install --registry=https://registry.npmmirror.com
+npm run dist
+```
