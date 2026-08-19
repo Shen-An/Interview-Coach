@@ -86,7 +86,7 @@ interview-coach/
 
 已内置完整打包链，产物在 `dist-electron/`：
 
-- **InterviewCoach Setup 1.1.0.exe** —— NSIS 安装包，双击安装，桌面快捷方式「Interview Coach」
+- **InterviewCoach Setup x.y.z.exe** —— NSIS 安装包（最新版在 GitHub Releases 下载），双击安装，桌面快捷方式「Interview Coach」
 - 所有配置在应用内「设置」里填，保存即生效；`.env`、面试记录、知识库、后端日志可从「设置」弹窗底部或托盘右键菜单直达
 - 关闭窗口 = 收进系统托盘（右键托盘图标「退出」才真正退出）；右上角 ☀/🌙 切换日间/夜间主题
 - 后端端口每次启动动态分配，不会再和其它程序抢端口；异常时看 `%APPDATA%\interview-coach\backend.log`
