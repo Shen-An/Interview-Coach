@@ -169,35 +169,42 @@ class LLMClient:
     # ---- unified chat ----
     def chat(
         self, system: str, messages: list[dict], max_tokens: int = 8192,
-        stop: list[str] | None = None, fast: bool = False,
+        stop: list[str] | None = None, fast: bool = False, system_tail: str = "",
     ) -> str:
         """stop：停止序列，用来在 API 端就掐住"模型开始自演下一轮"的开头。
         Anthropic 与 chat/completions 支持；Responses API 没有这个参数，会被忽略。
 
         fast：机械任务（转写纠错这类）用。推理模型默认自适应思考，顺一段话也能想 30 秒；
-        显式压低思考能降到几秒。网关不认这个参数时自动退回普通调用。"""
+        显式压低思考能降到几秒。网关不认这个参数时自动退回普通调用。
+
+        system_tail：每轮都变的小尾巴（面试进度提示这类）。单独一个块拼在 system 之后、
+        缓存断点之外——大头的 system 保持字节不变才能吃到前缀缓存。"""
         return self._rotate(
             {"anthropic": self._chat_anthropic, "openai": self._chat_openai},
-            system, messages, max_tokens, stop, fast,
+            system, messages, max_tokens, stop, fast, system_tail,
         )
 
     def _chat_anthropic(
         self, model: str, system: str, messages: list[dict], max_tokens: int,
-        stop: list[str] | None = None, fast: bool = False,
+        stop: list[str] | None = None, fast: bool = False, system_tail: str = "",
     ) -> str:
         client = self._get_anthropic()
         # 走流式：复盘报告要生成几千字，非流式请求在中转站/CDN 上常被 100s 空闲超时掐断（524），
         # SDK 还会把它当 5xx 重试两次，于是表现为"卡很久最后报 52x"。流式全程有数据在走，不会被判超时。
         # Opus 5：省略 thinking 参数即自适应思考；system 挂 cache_control 复用前缀缓存
+        sys_blocks = [{
+            "type": "text",
+            "text": system,
+            "cache_control": {"type": "ephemeral"},
+        }]
+        if system_tail:  # 动态尾块放缓存断点之后，不搅坏前缀缓存
+            sys_blocks.append({"type": "text", "text": system_tail})
+
         def run(extra: dict):
             with client.messages.stream(
                 model=model,
                 max_tokens=max_tokens,
-                system=[{
-                    "type": "text",
-                    "text": system,
-                    "cache_control": {"type": "ephemeral"},
-                }],
+                system=sys_blocks,
                 messages=messages,
                 **({"stop_sequences": list(stop)} if stop else {}),
                 **extra,
