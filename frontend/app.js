@@ -72,6 +72,11 @@ const app = createApp({
       transcribing: false,
       polishing: false,
       speaking: false,
+      streaming: false, // SSE 增量已开始渲染（思考点让位给正在生长的气泡）
+      _ttsQueue: [],
+      _ttsBusy: false,
+      _sentBuf: "",
+      _audioDone: null,
       report: null,
       savedTo: "",
       startedAt: null,
