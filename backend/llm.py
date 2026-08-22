@@ -222,6 +222,104 @@ class LLMClient:
             return "（面试官暂时无法回应这个话题，换个问题继续。）"
         return "".join(b.text for b in resp.content if b.type == "text")
 
+    # ---- streaming chat：SSE 逐字吐给前端，边收边念 ----
+    def chat_stream(self, system: str, messages: list[dict], max_tokens: int = 8192,
+                    stop: list[str] | None = None, system_tail: str = ""):
+        """生成器：逐段 yield 文本增量。轮换只在「还没吐出任何字」时发生——
+        吐了半句再换家，候选人会听到两个面试官接力说话。"""
+        errs = []
+        for p in self.chain() or [self.cfg.provider]:
+            fn = self._stream_anthropic if p == "anthropic" else self._stream_openai
+            emitted = False
+            try:
+                for piece in fn(self.model_of(p), system, messages, max_tokens, stop, system_tail):
+                    emitted = True
+                    yield piece
+                return
+            except Exception as e:
+                if emitted:
+                    raise
+                errs.append(f"{p}/{self.model_of(p)}：{e}")
+        raise RuntimeError(
+            "　→ 已自动切换备用，仍失败 → 　".join(errs) if len(errs) > 1
+            else (errs[0] if errs else "没有可用的提供商")
+        )
+
+    def _stream_anthropic(self, model: str, system: str, messages: list[dict], max_tokens: int,
+                          stop: list[str] | None = None, system_tail: str = ""):
+        client = self._get_anthropic()
+        sys_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
+        if system_tail:
+            sys_blocks.append({"type": "text", "text": system_tail})
+        with client.messages.stream(
+            model=model,
+            max_tokens=max_tokens,
+            system=sys_blocks,
+            messages=messages,
+            **({"stop_sequences": list(stop)} if stop else {}),
+        ) as stream:
+            for t in stream.text_stream:
+                if t:
+                    yield t
+            final = stream.get_final_message()
+        if final.stop_reason == "refusal" and not any(
+            b.type == "text" and b.text for b in final.content
+        ):
+            yield "（面试官暂时无法回应这个话题，换个问题继续。）"
+
+    def _stream_openai(self, model: str, system: str, messages: list[dict], max_tokens: int,
+                       stop: list[str] | None = None, system_tail: str = ""):
+        if self._force_chat_completions:
+            yield from self._stream_chat_completions(model, system, messages, max_tokens, stop, system_tail)
+            return
+        client = self._get_openai()
+        instructions = f"{system}\n\n{system_tail}" if system_tail else system
+        emitted = False
+        try:
+            with client.responses.stream(
+                model=model,
+                instructions=instructions,
+                input=[{"role": m["role"], "content": m["content"]} for m in messages],
+                max_output_tokens=max_tokens,
+            ) as stream:
+                for event in stream:
+                    # 只放行正文增量——reasoning 等其它事件流不进候选人耳朵
+                    if getattr(event, "type", "") == "response.output_text.delta":
+                        d = getattr(event, "delta", "") or ""
+                        if d:
+                            emitted = True
+                            yield d
+        except Exception as e:
+            if emitted or not self._responses_unsupported(e):
+                raise
+            self._force_chat_completions = True
+            yield from self._stream_chat_completions(model, system, messages, max_tokens, stop, system_tail)
+
+    def _stream_chat_completions(self, model: str, system: str, messages: list[dict], max_tokens: int,
+                                 stop: list[str] | None = None, system_tail: str = ""):
+        client = self._get_openai()
+        if system_tail:
+            system = f"{system}\n\n{system_tail}"
+        msgs = [{"role": "system", "content": system}] + [
+            {"role": m["role"], "content": m["content"]} for m in messages
+        ]
+        extra = {"stop": list(stop)[:4]} if stop else {}
+
+        def gen(**kw):
+            for chunk in client.chat.completions.create(model=model, messages=msgs, stream=True, **extra, **kw):
+                if chunk.choices:
+                    piece = chunk.choices[0].delta.content
+                    if piece:
+                        yield piece
+
+        try:
+            yield from gen(max_completion_tokens=max_tokens)
+        except Exception as e:
+            # 参数不兼容在首个 chunk 之前就会报，此时还没吐字，重试安全
+            if "max_completion_tokens" not in str(e):
+                raise
+            yield from gen(max_tokens=max_tokens)
+
     # ---- research：带原生 web search 工具的调用（每日知识库更新用） ----
     def research(
         self, system: str, prompt: str, max_tokens: int = 8192,
