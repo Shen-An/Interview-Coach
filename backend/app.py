@@ -278,7 +278,7 @@ def start_session(req: StartReq):
         raise HTTPException(400, detail)
     sid = uuid.uuid4().hex[:12]
     resume_text, resume_meta = load_resume()
-    opening = OPENING_RESUME.format(round=req.round) if resume_text else OPENING.format(round=req.round)
+    opening = pick_opening(req.round, bool(resume_text))
     _sessions[sid] = {
         "round": req.round,
         "style": req.style,
