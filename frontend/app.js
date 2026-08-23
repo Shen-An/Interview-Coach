@@ -548,22 +548,64 @@ const app = createApp({
       this.messages.push({ role: "user", content: text });
       this.scrollDown();
       this.busy = true;
+      this.streaming = false;
+      this._sentBuf = "";
+      let holder = null; // 首个增量到达时才建气泡，之前显示思考点
+      const append = (d) => {
+        if (!holder) {
+          holder = { role: "assistant", content: "" };
+          this.messages.push(holder);
+          this.streaming = true;
+        }
+        holder.content += d;
+        this.queueSentences(d); // 攒满一句立刻开始念
+        this.scrollDown();
+      };
       try {
-        const r = await fetch(`/api/session/${this.sessionId}/turn`, {
+        const r = await fetch(`/api/session/${this.sessionId}/turn/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text }),
         });
         if (!r.ok) throw new Error((await r.json()).detail);
-        const d = await r.json();
-        this.messages.push({ role: "assistant", content: d.message });
+        if (!r.body) throw new Error("这个环境不支持流式读取");
+        const reader = r.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "", finalText = null, errMsg = null;
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let i;
+          while ((i = buf.indexOf("\n\n")) >= 0) {
+            const frame = buf.slice(0, i);
+            buf = buf.slice(i + 2);
+            for (const line of frame.split("\n")) {
+              if (!line.startsWith("data: ")) continue;
+              const ev = JSON.parse(line.slice(6));
+              if (ev.d) append(ev.d);
+              else if (ev.err) errMsg = ev.err;
+              else if (ev.done) finalText = ev.text;
+            }
+          }
+        }
+        if (errMsg) throw new Error(errMsg);
+        // 后端清洗可能截掉了泄漏的尾巴，用最终版覆盖气泡
+        if (finalText !== null && holder && holder.content !== finalText) holder.content = finalText;
+        this.flushSentences(); // 末尾不带句号的半句也念出来
         this.scrollDown();
-        this.speak(d.message);
       } catch (e) {
-        this.messages.push({ role: "assistant", content: "（系统错误：" + e.message + "）" });
+        this.stopTTS();
+        if (holder && holder.content) {
+          holder.content += "（——已中断：" + e.message + "）";
+        } else {
+          if (holder) this.messages.pop();
+          this.messages.push({ role: "assistant", content: "（系统错误：" + e.message + "）" });
+        }
         this.scrollDown();
       } finally {
         this.busy = false;
+        this.streaming = false;
       }
     },
 
