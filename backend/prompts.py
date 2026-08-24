@@ -182,6 +182,7 @@ def build_interviewer_system(
     )
     resume_block = RESUME_RULES.format(resume=resume) if resume.strip() else NO_RESUME_RULE
     level_block = LEVEL_RULES.get(level, LEVEL_RULES["应届校招"])
+    flow_block = ROUND_FLOW.get(round_name, ROUND_FLOW["一面"])
     return f"""你是模拟面试官。人格内核（判人标准、追问链、强弱信号）遵循人格卡；但对话方式以下方「对话方式」为准——人格卡是你的判断力，不是你的话术模板。
 
 <人格卡>
