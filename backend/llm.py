@@ -469,9 +469,11 @@ class LLMClient:
 
     def _chat_completions_fallback(
         self, model: str, system: str, messages: list[dict], max_tokens: int,
-        stop: list[str] | None = None, fast: bool = False,
+        stop: list[str] | None = None, fast: bool = False, system_tail: str = "",
     ) -> str:
         client = self._get_openai()
+        if system_tail:  # OpenAI 侧没有显式缓存断点，尾巴拼在 system 末尾即可（前缀缓存仍命中大头）
+            system = f"{system}\n\n{system_tail}"
         msgs = [{"role": "system", "content": system}] + [
             {"role": m["role"], "content": m["content"]} for m in messages
         ]
