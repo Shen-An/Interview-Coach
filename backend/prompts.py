@@ -196,6 +196,7 @@ def build_interviewer_system(
 <候选人身份：{level}>
 {level_block}
 </候选人身份>
+{flow_block}
 {NATURAL_RULES}
 本场设定：
 - 方向：AI Agent 开发；轮次：{round_name}；压力风格：{company_style}（按人格卡第九节切换考察侧重，但语气仍遵守上面的对话方式）
