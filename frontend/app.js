@@ -702,26 +702,73 @@ const app = createApp({
       this.copy(this.savedTo || "", "存档路径已复制");
     },
 
-    /* ---------- TTS：面试官朗读 ----------
-       三级：配了 key 走付费云端（onyx + 语气指令）→ 没配走 Edge 免费云音（云希男声 + 风格韵律，
-       后端 /api/tts 内部选路）→ 网络挂了才退系统本地音。失败一次后本场跳过云端，不反复等超时 */
-    async speak(text) {
+    /* ---------- TTS：面试官朗读（分句流水线） ----------
+       文本按句进播放队列：SSE 边吐字边攒句，攒满一句立刻入队——第一句到齐就开口，不等全文。
+       队列顺序播放；云端音频在入队时就预取，播上一句的同时下一句已在合成。
+       三级选路不变：付费云端 → Edge 免费云音（后端 /api/tts 内部选）→ 系统本地音。
+       云端失败一次后本场跳过云端，不反复等超时 */
+    speak(text) {
+      // 整段文本入口（开场白等）：同样走分句队列，首句最快开播
       if (!this.ttsOn) return;
-      const clean = text.replace(/[#*`>\-]/g, "");
-      if (!this._cloudTtsDead) {
-        try {
-          await this.speakCloud(clean);
-          return;
-        } catch (e) {
-          this._cloudTtsDead = true;
-          console.warn("云端 TTS 失败，降级本地语音：", e);
-        }
-      }
-      this.speakLocal(clean);
+      this.stopTTS();
+      this.queueSentences(text);
+      this.flushSentences();
     },
 
-    async speakCloud(text) {
-      this.stopTTS();
+    queueSentences(delta) {
+      if (!this.ttsOn) return;
+      this._sentBuf += delta;
+      let m;
+      while ((m = this._sentBuf.match(/[\s\S]*?[。！？!?；;\n]+/))) {
+        this._sentBuf = this._sentBuf.slice(m[0].length);
+        this.enqueueSpeak(m[0]);
+      }
+    },
+    flushSentences() {
+      const rest = this._sentBuf;
+      this._sentBuf = "";
+      if (rest.trim()) this.enqueueSpeak(rest);
+    },
+
+    enqueueSpeak(text) {
+      const clean = text.replace(/[#*`>\-]/g, "").trim();
+      if (!clean) return;
+      const item = { text: clean };
+      if (!this._cloudTtsDead) {
+        item.blob = this.fetchTTS(clean).catch(() => null); // 预取：播上一句时这句已在合成
+      }
+      this._ttsQueue.push(item);
+      this.pumpTTS();
+    },
+
+    async pumpTTS() {
+      if (this._ttsBusy) return;
+      this._ttsBusy = true;
+      try {
+        while (this._ttsQueue.length) {
+          const item = this._ttsQueue.shift();
+          await this.speakOne(item);
+        }
+      } finally {
+        this._ttsBusy = false;
+        this.speaking = false;
+      }
+    },
+
+    async speakOne(item) {
+      if (item.blob) {
+        const blob = await item.blob;
+        if (blob) {
+          await this.playBlob(blob);
+          return;
+        }
+        this._cloudTtsDead = true; // 预取失败：本场剩余句子直接走本地音
+        console.warn("云端 TTS 失败，降级本地语音");
+      }
+      await this.speakLocalOne(item.text);
+    },
+
+    async fetchTTS(text) {
       const r = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
