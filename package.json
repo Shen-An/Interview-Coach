@@ -1,0 +1,61 @@
+{
+  "name": "interview-coach",
+  "version": "1.7.6",
+  "description": "语音模拟面试助手 · 面试官 (AI Agent 方向)",
+  "main": "electron/main.js",
+  "author": "interview-coach",
+  "scripts": {
+    "dev": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "33.2.0",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.interviewcoach.app",
+    "productName": "InterviewCoach",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist-backend/interview-coach-backend.exe",
+        "to": "app-res/interview-coach-backend.exe"
+      },
+      {
+        "from": "kb",
+        "to": "app-res/kb"
+      },
+      {
+        "from": "frontend",
+        "to": "app-res/frontend"
+      },
+      {
+        "from": ".env.example",
+        "to": "app-res/.env.example"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Interview Coach"
+    }
+  }
+}

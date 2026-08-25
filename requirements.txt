@@ -1,0 +1,9 @@
+fastapi>=0.115
+uvicorn>=0.30
+python-dotenv>=1.0
+anthropic>=0.116
+openai>=2.0
+python-multipart>=0.0.9
+pypdf>=5.0
+python-docx>=1.1
+edge-tts>=7.0

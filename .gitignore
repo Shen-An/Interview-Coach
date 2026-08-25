@@ -1,0 +1,36 @@
+# ---- 密钥：绝对不能进仓库 ----
+.env
+.env.local
+*.key
+
+# ---- 构建产物（1.8G，且单个安装包超过 GitHub 100MB 限制）----
+dist-electron/
+dist-backend/
+build-pyi/*
+!build-pyi/*.spec
+node_modules/
+build-venv/
+*.exe
+*.blockmap
+
+# ---- 运行时生成的用户数据 ----
+sessions/
+kb/UPDATES.md
+resume.txt
+resume.meta.json
+*.log
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ---- 本地工具配置（不是项目的一部分）----
+.claude/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

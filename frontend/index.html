@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="zh-CN" class="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interview Coach · 模拟面试</title>
+  <script>/* 在样式表加载前套用已保存的主题，避免闪一下 */
+    try { if (localStorage.getItem("ic-theme") === "dark") document.documentElement.className = "dark"; } catch (e) {}
+  </script>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link rel="stylesheet" href="/static/vendor/element-plus.css">
+  <link rel="stylesheet" href="/static/vendor/element-plus-dark.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app" v-cloak>
+<el-config-provider :locale="locale">
+<div class="shell">
+
+  <!-- ═════════ 左侧导航 ═════════ -->
+  <aside class="side">
+    <div class="side-brand" @click="nav('prep')">
+      <span class="brand-glyph">IC</span>
+      <span class="brand-text">
+        <b>Interview Coach</b>
+        <i>AI 模拟面试</i>
+      </span>
+    </div>
+
+    <nav class="side-nav">
+      <button :class="['nav-item', { on: page === 'prep' }]" @click="nav('prep')">
+        <el-icon><icon-monitor></icon-monitor></el-icon>
+        <span class="nav-label">工作台</span>
+      </button>
+      <button :class="['nav-item', { on: page === 'interview' }]" @click="nav('interview')">
+        <el-icon><icon-chat-dot-round></icon-chat-dot-round></el-icon>
+        <span class="nav-label">模拟面试</span>
+        <span v-if="sessionId" class="nav-badge live mono">{{ elapsed }}</span>
+      </button>
+      <button :class="['nav-item', { on: page === 'intel' }]" @click="nav('intel')">
+        <el-icon><icon-collection></icon-collection></el-icon>
+        <span class="nav-label">情报库</span>
+        <i v-if="kbStale" class="nav-dot" title="今天还没更新"></i>
+      </button>
+      <button :class="['nav-item', { on: page === 'records' }]" @click="nav('records')">
+        <el-icon><icon-folder-opened></icon-folder-opened></el-icon>
+        <span class="nav-label">面试记录</span>
+        <span v-if="history.length" class="nav-badge mono">{{ history.length }}</span>
+      </button>
+      <button v-if="report" :class="['nav-item', { on: page === 'report' }]" @click="nav('report')">
+        <el-icon><icon-data-analysis></icon-data-analysis></el-icon>
+        <span class="nav-label">本场复盘</span>
+      </button>
+    </nav>
+
+    <div class="side-foot">
+      <el-tooltip :content="cfg.ready ? cfg.detail : '还没配置模型，点齿轮进设置'" placement="right">
+        <div class="side-model" @click="openSettings">
+          <i :class="['dot', cfg.ready ? 'ok' : 'bad']"></i>
+          <span class="side-model-name mono">{{ cfg.ready ? (cfg.model || cfg.provider) : '未配置模型' }}</span>
+        </div>
+      </el-tooltip>
+      <div class="side-acts">
+        <el-tooltip :content="theme === 'dark' ? '切到日间' : '切到夜间'" placement="right">
+          <button class="side-act" @click="toggleTheme">
+            <el-icon><icon-sunny v-if="theme === 'dark'"></icon-sunny><icon-moon v-else></icon-moon></el-icon>
+          </button>
+        </el-tooltip>
+        <el-tooltip content="设置" placement="right">
+          <button class="side-act" @click="openSettings">
+            <el-icon><icon-setting></icon-setting></el-icon>
+          </button>
+        </el-tooltip>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═════════ 主区 ═════════ -->
+  <div class="stage">
+
+    <!-- ───────── 工作台 ───────── -->
+    <main v-if="page === 'prep'" class="panel pg workbench">
+      <el-alert v-if="!cfg.ready" type="warning" :closable="false" show-icon class="gap-b"
+                title="还没配置对话模型">
+        <template #default>
+          <span>{{ cfg.detail }}——填一个 API key 就能开始。</span>
+          <el-button link type="warning" class="inline-link" @click="openSettings">打开设置</el-button>
+        </template>
+      </el-alert>
+
+      <!-- 开始面试 -->
+      <section class="hero-card">
+        <div class="hero-main">
+          <h1>开始一场模拟面试</h1>
+          <p class="hero-sub">{{ resume.loaded ? '面试官会照着《' + resume.filename + '》逐条深挖' : '没传简历也能面，面试官会让你先讲项目' }}</p>
+          <div class="hero-chips">
+            <el-tag size="small" effect="plain" round>{{ round }}</el-tag>
+            <el-tag size="small" effect="plain" round>{{ style }}风格</el-tag>
+            <el-tag size="small" effect="plain" round>{{ level }}</el-tag>
+            <el-tag v-if="resume.loaded" size="small" type="success" effect="plain" round>已带简历</el-tag>
+            <el-tag v-if="ttsOn" size="small" effect="plain" round>语音朗读</el-tag>
+          </div>
+        </div>
+        <div class="hero-cta">
+          <el-button type="primary" size="large" class="start-btn"
+                     :disabled="!cfg.ready" :loading="busy" @click="startInterview">
+            <el-icon v-if="!busy" class="cta-ico"><icon-video-play></icon-video-play></el-icon>
+            开始面试
+          </el-button>
+          <span v-if="sessionId" class="hero-resume-note">有一场进行中（{{ elapsed }}），点左侧「模拟面试」回去</span>
+        </div>
+      </section>
+
+      <div class="wb-grid">
+        <div class="wb-main">
+          <!-- 简历 -->
+          <section class="card">
+            <div class="card-head">
+              <span class="eyebrow">RESUME</span>
+              <h2>简历</h2>
+              <span class="card-note">传了简历，面试官就照着它逐条深挖，而不是泛泛问概念</span>
+            </div>
+
+            <el-upload v-if="!resume.loaded" drag class="dropzone" :auto-upload="false" :show-file-list="false"
+                       accept=".pdf,.docx,.txt,.md,.markdown" :disabled="uploading"
+                       @change="onResumePick">
+              <el-icon class="dz-icon"><icon-upload-filled></icon-upload-filled></el-icon>
+              <div class="dz-title">{{ uploading ? '解析中…' : '把简历拖到这里，或点击选择' }}</div>
+              <div class="dz-sub">PDF · DOCX · TXT · Markdown　只存在本机，不上传第三方</div>
+            </el-upload>
+
+            <div v-else class="loaded">
+              <div class="loaded-top">
+                <el-icon class="ok-icon"><icon-document-checked></icon-document-checked></el-icon>
+                <span class="loaded-name">{{ resume.filename }}</span>
+                <span class="mono dim">{{ resume.chars }} 字</span>
+                <div class="spacer"></div>
+                <el-upload class="inline-upload" :auto-upload="false" :show-file-list="false"
+                           accept=".pdf,.docx,.txt,.md,.markdown" @change="onResumePick">
+                  <el-button link size="small">换一份</el-button>
+                </el-upload>
+                <el-button link size="small" type="danger" @click="deleteResume">移除</el-button>
+              </div>
+              <p class="loaded-preview">{{ resume.preview }}</p>
+            </div>
+          </section>
+
+          <!-- 配置 -->
+          <section class="card">
+            <div class="card-head">
+              <span class="eyebrow">SETUP</span>
+              <h2>这场怎么面</h2>
+            </div>
+            <div class="field">
+              <label>你的身份<em>决定她拿什么标准压你</em></label>
+              <el-segmented v-model="level" :options="levels" block></el-segmented>
+            </div>
+            <div class="field-pair">
+              <div class="field">
+                <label>轮次</label>
+                <el-segmented v-model="round" :options="rounds" block></el-segmented>
+              </div>
+              <div class="field">
+                <label>压力风格</label>
+                <el-segmented v-model="style" :options="styles" block></el-segmented>
+              </div>
+            </div>
+            <el-divider></el-divider>
+            <div class="toggle-row">
+              <div class="toggle">
+                <el-switch v-model="ttsOn"></el-switch>
+                <span>面试官朗读题目</span>
+              </div>
+              <div class="toggle">
+                <el-tag :type="sttAvailable ? 'success' : 'danger'" effect="plain" size="small" round>
+                  {{ sttAvailable ? '语音作答可用' : '语音作答不可用' }}
+                </el-tag>
+                <span v-if="sttAvailable" class="dim small">点麦克风说话，停止后自动发送</span>
+                <el-tooltip v-else :content="sttHint" placement="top">
+                  <span class="small why">为什么不可用？</span>
+                </el-tooltip>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="wb-side">
+          <!-- 情报库速览 -->
+          <section class="card mini-card" @click="nav('intel')">
+            <div class="mini-head">
+              <el-icon class="mini-ico"><icon-collection></icon-collection></el-icon>
+              <b>情报库</b>
+              <el-icon class="mini-go"><icon-arrow-right></icon-arrow-right></el-icon>
+            </div>
+            <div class="mini-body">
+              <el-tag v-if="kb.latest_update && !kbStale" type="success" effect="plain" size="small" round>今日已更新</el-tag>
+              <el-tag v-else-if="kb.latest_update" type="warning" effect="plain" size="small" round>有待更新</el-tag>
+              <el-tag v-else type="info" effect="plain" size="small" round>暂无增量情报</el-tag>
+              <p class="mini-note">{{ kb.latest_update || '只用内置题库，去情报库联网搜今日面经' }}</p>
+            </div>
+          </section>
+
+          <!-- 最近记录 -->
+          <section class="card mini-card" @click="nav('records')">
+            <div class="mini-head">
+              <el-icon class="mini-ico"><icon-folder-opened></icon-folder-opened></el-icon>
+              <b>面试记录</b>
+              <span v-if="avgScore" class="mini-stat mono">近5场均分 {{ avgScore }}</span>
+              <el-icon class="mini-go"><icon-arrow-right></icon-arrow-right></el-icon>
+            </div>
+            <div class="mini-body">
+              <template v-if="history.length">
+                <div v-for="h in recentHistory" :key="h.id" class="mini-row">
+                  <span :class="['his-score', 'mono', 'sm', { none: !h.score }]">{{ h.score || '—' }}</span>
+                  <span class="mini-row-title">{{ h.round }} · {{ h.style }}</span>
+                  <span class="mini-row-date mono">{{ (h.started_at || '').slice(5, 10) }}</span>
+                </div>
+              </template>
+              <p v-else class="mini-note">还没有面过，第一场结束后这里会有复盘档案</p>
+            </div>
+          </section>
+
+          <!-- 使用提示 -->
+          <section class="card mini-card static">
+            <div class="mini-head">
+              <el-icon class="mini-ico"><icon-opportunity></icon-opportunity></el-icon>
+              <b>提分要点</b>
+            </div>
+            <ul class="tips">
+              <li>每场只挑一个项目让她深挖，比广度轮收益大</li>
+              <li>回答强制带三个数字：规模、质量、成本/延迟</li>
+              <li>被问倒别硬编，说排查思路比编造扣分少</li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <!-- ───────── 模拟面试 ───────── -->
+    <main v-if="page === 'interview'" class="panel chat-panel">
+      <template v-if="sessionId">
+        <div class="statusbar">
+          <div class="status-left">
+            <span class="timer mono">{{ elapsed }}</span>
+            <el-tag size="small" effect="plain" round>{{ round }}</el-tag>
+            <el-tag size="small" effect="plain" round>{{ style }}风格</el-tag>
+            <el-tag size="small" effect="plain" round>{{ level }}</el-tag>
+            <span class="qcount">第 <b class="mono">{{ questionCount }}</b> 问</span>
+            <el-tag v-if="resume.loaded" size="small" type="success" effect="plain" round>照简历追问</el-tag>
+          </div>
+          <el-button type="danger" plain :loading="busy" @click="endInterview">结束面试并复盘</el-button>
+        </div>
+
+        <div class="chat" ref="chatBox">
+          <!-- 内层靠 margin-top:auto 把对话压到贴着输入区，同时不影响溢出滚动 -->
+          <div class="chat-inner">
+            <div v-for="(m, i) in messages" :key="i" :class="['msg', m.role]">
+              <div class="who">{{ m.role === 'assistant' ? '面试官' : '我' }}</div>
+              <div class="bubble">{{ m.content }}</div>
+            </div>
+            <div v-if="busy" class="msg assistant">
+              <div class="who">面试官</div>
+              <div class="bubble thinking"><i></i><i></i><i></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div class="composer-top">
+            <el-button-group>
+              <el-button size="small" :disabled="busy" @click="askHint">要个提示</el-button>
+              <el-button size="small" :disabled="busy" @click="skipQuestion">这题跳过</el-button>
+            </el-button-group>
+            <span v-if="speaking" class="speak-flag">
+              朗读中<el-button link size="small" @click="stopTTS">跳过</el-button>
+            </span>
+            <div class="spacer"></div>
+            <span v-if="recording" class="rec-flag">录音中，说完点「停止并发送」</span>
+            <span v-else-if="transcribing" class="rec-flag">正在转写…</span>
+            <span v-else-if="polishing" class="rec-flag">正在修正识别…</span>
+            <span v-else class="dim small">Ctrl + Enter 发送</span>
+          </div>
+
+          <div class="composer-main">
+            <button type="button" :class="['mic', { rec: recording, wait: transcribing }]"
+                    :disabled="busy || transcribing || polishing || !sttAvailable" @click="toggleMic">
+              <span v-if="recording" class="meter live" :class="{ breathe: !meterLive }">
+                <i v-for="(b, k) in meterBars" :key="k" :style="{ transform: 'scaleY(' + b + ')' }"></i>
+              </span>
+              <el-icon v-else class="mic-ico"><icon-microphone></icon-microphone></el-icon>
+              <span class="mic-label">{{ transcribing ? '转写中' : (polishing ? '修正中' : (recording ? '停止并发送' : '按下说话')) }}</span>
+            </button>
+            <el-input v-model="draft" type="textarea" :autosize="{ minRows: 2, maxRows: 6 }"
+                      :disabled="busy" resize="none"
+                      :placeholder="recording ? (interim || '正在听你说…') : '也可以打字回答'"
+                      @keydown.ctrl.enter.prevent="sendDraft"></el-input>
+            <el-button type="primary" class="send-btn" :disabled="busy || !draft.trim()" @click="sendDraft">发送</el-button>
+          </div>
+        </div>
+      </template>
+
+      <div v-else class="empty-state">
+        <el-icon class="empty-ico"><icon-chat-dot-round></icon-chat-dot-round></el-icon>
+        <h2>还没有进行中的面试</h2>
+        <p class="dim">去工作台选好轮次和风格，点「开始面试」就到这里</p>
+        <el-button type="primary" @click="nav('prep')">去开始一场</el-button>
+      </div>
+    </main>
+
+    <!-- ───────── 情报库 ───────── -->
+    <main v-if="page === 'intel'" class="panel pg intel-page">
+      <div class="page-head">
+        <div class="page-title">
+          <h1>面试官情报库</h1>
+          <p class="page-note">大厂面经的增量更新，决定面试官会问到多新的东西</p>
+        </div>
+        <div class="page-acts">
+          <el-button type="primary" :loading="kbBusy" @click="refreshKb">
+            {{ kbBusy ? '情报搜集中…' : '联网搜今日面经' }}
+          </el-button>
+          <el-upload class="inline-upload" :auto-upload="false" :show-file-list="false"
+                     accept=".md,.markdown,.txt" :disabled="kbBusy" @change="onKbPick">
+            <el-button :disabled="kbBusy">导入日更文件</el-button>
+          </el-upload>
+        </div>
+      </div>
+      <p v-if="kbBusy" class="intel-hint">联网检索 + 蒸馏约 1–2 分钟，会用掉你配置的模型的少量额度。</p>
+
+      <div class="stat-strip">
+        <div class="stat-tile">
+          <span class="stat-label">增量情报</span>
+          <span :class="['stat-value', kb.latest_update ? (kbStale ? 'warn' : 'ok') : 'faint']">
+            {{ kb.latest_update ? (kbStale ? '有待更新' : '今日已更新') : '暂无' }}
+          </span>
+          <span class="stat-sub mono">{{ kb.latest_update || '只用内置题库' }}</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-label">知识库文件</span>
+          <span class="stat-value mono">{{ (kb.files || []).length }}</span>
+          <span class="stat-sub">人格卡 · 题库 · 评分细则 · 日更</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-label">总字数</span>
+          <span class="stat-value mono">{{ kbChars }}</span>
+          <span class="stat-sub">全部随开场提示词喂给面试官</span>
+        </div>
+      </div>
+
+      <!-- 最新情报正文 -->
+      <section class="card">
+        <div class="card-head">
+          <span class="eyebrow">LATEST</span>
+          <h2>{{ intelTitle || '最新情报' }}</h2>
+        </div>
+        <template v-if="intelHtml">
+          <div v-if="intelSites.length" class="intel-sites">
+            <span class="dim small">本次命中站点</span>
+            <el-tag v-for="s in intelSites" :key="s.host" size="small" effect="plain" round>
+              {{ s.host }} × {{ s.count }}
+            </el-tag>
+          </div>
+          <article class="dossier flat" v-html="intelHtml"></article>
+          <el-collapse v-if="intelSources.length" class="intel-links">
+            <el-collapse-item :title="'原文链接（' + intelSources.length + '）'" name="src">
+              <ul>
+                <li v-for="src in intelSources" :key="src.url">
+                  <a :href="src.url" target="_blank" rel="noreferrer">{{ src.title || src.url }}</a>
+                </li>
+              </ul>
+            </el-collapse-item>
+          </el-collapse>
+        </template>
+        <div v-else class="empty-inline">
+          <p class="dim">情报库还没有增量内容。点右上角「联网搜今日面经」，面试官会检索今天的最新面经并蒸馏进题库。</p>
+        </div>
+      </section>
+
+      <!-- 知识库文件 -->
+      <section class="card">
+        <div class="card-head">
+          <span class="eyebrow">FILES</span>
+          <h2>知识库文件</h2>
+          <span class="card-note">直接编辑文件即可增补题库，重启生效</span>
+          <div class="spacer"></div>
+          <el-button v-if="isElectron" link size="small" @click="icOpen('kb')">打开文件夹</el-button>
+        </div>
+        <div class="kb-files">
+          <div v-for="f in kb.files" :key="f.name" class="kb-file">
+            <el-icon class="kb-file-ico"><icon-document></icon-document></el-icon>
+            <span class="kb-file-name mono">{{ f.name }}</span>
+            <span class="kb-file-meta mono dim">{{ f.chars }} 字</span>
+            <span class="kb-file-meta mono dim">{{ (f.mtime || '').replace('T', ' ') }}</span>
+          </div>
+          <p v-if="!(kb.files || []).length" class="dim small">还没有知识库文件</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- ───────── 面试记录 ───────── -->
+    <main v-if="page === 'records'" class="panel pg records-page">
+      <div class="page-head">
+        <div class="page-title">
+          <h1>面试记录</h1>
+          <p class="page-note">复习扣分点比多面一场更涨分，两周后重考同一批扣分点</p>
+        </div>
+        <el-input v-model="archFilter" clearable class="rec-filter"
+                  placeholder="筛选：字节 / 二面 / 在校实习 / 日期…">
+          <template #prefix><el-icon><icon-search></icon-search></el-icon></template>
+        </el-input>
+      </div>
+
+      <div v-if="history.length" class="stat-strip">
+        <div class="stat-tile">
+          <span class="stat-label">总场次</span>
+          <span class="stat-value mono">{{ history.length }}</span>
+          <span class="stat-sub">存在本机 sessions/ 目录</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-label">近 5 场均分</span>
+          <span class="stat-value mono">{{ avgScore || '—' }}</span>
+          <span class="stat-sub">按结束时间倒序取 5 场</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-label">最高分</span>
+          <span class="stat-value mono">{{ bestScore || '—' }}</span>
+          <span class="stat-sub">≥85 SSP · 70-84 SP · 55-69 普通</span>
+        </div>
+      </div>
+
+      <section v-if="history.length" class="card">
+        <div class="his-list">
+          <div v-for="h in filteredHistory" :key="h.id" class="his-row wide" @click="openHistory(h)">
+            <span :class="['his-score', 'mono', { none: !h.score }]">{{ h.score || '—' }}</span>
+            <div class="his-main">
+              <div class="his-title">{{ h.round }} · {{ h.style }}风格 · {{ h.level }}</div>
+              <div class="his-sub">{{ (h.started_at || '').replace('T', ' ') }} · {{ h.questions }} 问{{ h.resume_used ? ' · 照简历' : '' }}</div>
+            </div>
+            <el-button link size="small" @click.stop="openHistory(h)">回看</el-button>
+            <el-button link size="small" type="danger" @click.stop="deleteHistory(h)">删除</el-button>
+          </div>
+          <p v-if="!filteredHistory.length" class="arch-empty">没有匹配的记录</p>
+        </div>
+      </section>
+
+      <div v-else class="empty-state">
+        <el-icon class="empty-ico"><icon-folder-opened></icon-folder-opened></el-icon>
+        <h2>还没有面试记录</h2>
+        <p class="dim">第一场面完，复盘和对话记录会自动存档到这里</p>
+        <el-button type="primary" @click="nav('prep')">去面一场</el-button>
+      </div>
+    </main>
+
+    <!-- ───────── 本场复盘 ───────── -->
+    <main v-if="page === 'report'" class="panel report-panel">
+      <template v-if="report">
+        <div class="statusbar">
+          <div class="status-left">
+            <span class="eyebrow">DEBRIEF</span>
+            <el-tooltip :content="savedTo" placement="bottom">
+              <span class="mono dim archive" @click="copyPath">已存档 · 点击复制路径</span>
+            </el-tooltip>
+          </div>
+          <div class="status-right">
+            <el-button plain @click="copyReport">复制 Markdown</el-button>
+            <el-button plain @click="nav('records')">全部记录</el-button>
+            <el-button type="primary" @click="reset">再来一场</el-button>
+          </div>
+        </div>
+
+        <div class="report-scroll">
+          <!-- 评分卡：从复盘正文里解析出的真实分数 -->
+          <section v-if="scores.length" class="scorecard">
+            <div class="total">
+              <el-progress type="dashboard" :percentage="totalPct" :width="150" :stroke-width="9"
+                           :color="gradeColor" :show-text="false"></el-progress>
+              <div class="total-inner">
+                <span class="total-num mono">{{ totalScore }}</span>
+                <span class="total-den mono">/ 100</span>
+              </div>
+            </div>
+            <div class="dims">
+              <div class="grade-line">
+                <span class="grade" :style="{ color: gradeColor }">{{ grade || '已评分' }}</span>
+                <span v-if="gradeNote" class="grade-note">{{ gradeNote }}</span>
+                <span class="dim small">{{ round }} · {{ style }}风格 · {{ level }}</span>
+              </div>
+              <div v-for="d in scores" :key="d.key" class="dim-row">
+                <span class="dim-key mono">{{ d.key }}</span>
+                <span class="dim-name">{{ d.name }}</span>
+                <span class="dim-bar"><i :style="{ width: d.pct + '%', background: barColor(d.pct) }"></i></span>
+                <span class="dim-score mono">{{ d.score }}<em>/{{ d.max }}</em></span>
+              </div>
+            </div>
+          </section>
+
+          <article class="dossier" v-html="reportHtml"></article>
+        </div>
+      </template>
+
+      <div v-else class="empty-state">
+        <el-icon class="empty-ico"><icon-data-analysis></icon-data-analysis></el-icon>
+        <h2>本场还没有复盘</h2>
+        <p class="dim">面试结束后自动生成五维评分和扣分点回放</p>
+        <el-button type="primary" @click="nav('prep')">去面一场</el-button>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ───────── 复盘回看 ───────── -->
+  <el-dialog v-model="showHistory" :title="historyTitle" width="760" class="history-dialog" append-to-body>
+    <article class="dossier his-dossier" v-html="historyHtml"></article>
+  </el-dialog>
+
+  <!-- ───────── 设置 ───────── -->
+  <el-dialog v-model="showSettings" title="设置" width="540" class="settings-dialog"
+             :close-on-click-modal="false" append-to-body>
+    <el-form label-position="top" class="settings-form">
+      <el-form-item label="对话模型提供商">
+        <el-segmented v-model="st.LLM_PROVIDER" :options="providerOpts" block></el-segmented>
+      </el-form-item>
+
+      <template v-if="st.LLM_PROVIDER === 'openai'">
+        <el-form-item label="OpenAI API Key">
+          <el-input v-model="st.OPENAI_API_KEY" type="password" show-password placeholder="sk-..."></el-input>
+        </el-form-item>
+        <el-form-item label="模型">
+          <el-input v-model="st.OPENAI_MODEL" placeholder="gpt-5"></el-input>
+        </el-form-item>
+        <el-form-item label="Base URL">
+          <el-input v-model="st.OPENAI_BASE_URL" placeholder="第三方兼容网关才填，如 https://api.xxx.com/v1"></el-input>
+        </el-form-item>
+      </template>
+      <template v-else>
+        <el-form-item label="Anthropic API Key">
+          <el-input v-model="st.ANTHROPIC_API_KEY" type="password" show-password placeholder="sk-ant-...（中转站的 key 也填这里）"></el-input>
+        </el-form-item>
+        <el-form-item label="模型">
+          <el-input v-model="st.ANTHROPIC_MODEL" placeholder="claude-opus-5"></el-input>
+        </el-form-item>
+        <el-form-item label="Base URL">
+          <el-input v-model="st.ANTHROPIC_BASE_URL" placeholder="中转站才填，如 https://api.xxx.com（不带 /v1，留空走官方）"></el-input>
+        </el-form-item>
+      </template>
+
+      <div class="test-row">
+        <el-button size="small" :loading="testing.llm" @click="testLlm">保存并测试对话</el-button>
+        <span :class="['test-msg', testOk.llm ? 'ok' : 'bad']">{{ testMsg.llm }}</span>
+      </div>
+
+      <el-divider content-position="left">语音转写</el-divider>
+      <el-form-item label="麦克风">
+        <div class="mic-pick">
+          <el-select :model-value="micId" @change="onMicPick" placeholder="系统默认输入设备"
+                     clearable filterable class="mic-select">
+            <el-option v-for="m in mics" :key="m.id" :label="m.label" :value="m.id"></el-option>
+          </el-select>
+          <el-button size="small" :loading="micTest.on" @click="testMic">
+            {{ micTest.on ? '说话中…' : '测试麦克风' }}
+          </el-button>
+        </div>
+      </el-form-item>
+      <p v-if="micTest.msg" class="form-note mic-test-msg">{{ micTest.msg }}</p>
+      <p class="form-note">台式机没有内置麦克风时，这里要挑对设备。<b>蓝牙耳机</b>的麦克风只挂在
+        「免提 / Hands-Free」那个端点上（另一个只有声音输出没有麦克风），选带 Hands-Free 字样的；
+        虚拟声卡（各类虚拟音频设备）录出来是静音，别选。选完点测试，能看到峰值百分比才算通。</p>
+      <p class="form-note">exe 版「你说话」走这个接口，whisper 兼容即可。留空则复用上面的 OpenAI Key。<br>
+        没有 key？国内推荐<b>硅基流动</b>（siliconflow.cn 注册即送额度）：Base URL 填
+        <code>https://api.siliconflow.cn/v1</code>，模型填 <code>FunAudioLLM/SenseVoiceSmall</code>（免费）。
+        用 OpenAI 中转站的话 Base URL 填中转站地址（带 /v1），模型 <code>whisper-1</code> 或 <code>gpt-4o-mini-transcribe</code>。</p>
+      <el-form-item label="转写 API Key">
+        <el-input v-model="st.STT_API_KEY" type="password" show-password placeholder="留空 = 复用 OpenAI Key"></el-input>
+      </el-form-item>
+      <el-form-item label="转写 Base URL">
+        <el-input v-model="st.STT_BASE_URL" placeholder="如 https://api.siliconflow.cn/v1"></el-input>
+      </el-form-item>
+      <el-form-item label="转写模型">
+        <el-input v-model="st.STT_MODEL" placeholder="gpt-4o-mini-transcribe"></el-input>
+      </el-form-item>
+
+      <el-form-item label="识别后修正">
+        <el-switch v-model="st.STT_REWRITE" active-value="on" inactive-value="off"></el-switch>
+      </el-form-item>
+      <p class="form-note">开启后，每次<b>语音</b>输入都用上面的对话模型顺一遍：结合面试官刚问的问题和你的简历，
+        把识别错的技术术语修回来（「从盘卡」→ cross-encoder、「叶子为」→ if-else）。
+        <b>只纠错，不润色</b>——「呃/就是/我我我」这些会原样保留，因为复盘的「关键扣分点」要引用你的原话，
+        抹平了就看不出表达问题。打字输入不受影响。代价是每次作答多一次模型调用，慢一两秒。</p>
+
+      <div class="test-row">
+        <el-button size="small" :loading="testing.stt" @click="testStt">保存并测试转写</el-button>
+        <span :class="['test-msg', testOk.stt ? 'ok' : 'bad']">{{ testMsg.stt }}</span>
+      </div>
+
+      <el-divider content-position="left">面试官音色</el-divider>
+      <p class="form-note"><b>全部留空 = 免费的微软云端男声</b>（云希，Edge 浏览器同款神经网络音，效果远好于系统自带，按厂风格自动调语速语调）。想换别的免费男声，音色栏填
+        <code>zh-CN-YunjianNeural</code>（低沉）或 <code>zh-CN-YunyangNeural</code>（播音腔）。<br>
+        要更自然的付费音：填 OpenAI 兼容 /audio/speech 的 key（留空 Key 复用上面的 OpenAI Key），模型
+        <code>gpt-4o-mini-tts</code> + 音色 <code>onyx</code>；或硅基流动 <code>FunAudioLLM/CosyVoice2-0.5B</code> +
+        <code>FunAudioLLM/CosyVoice2-0.5B:benjamin</code>。</p>
+      <el-form-item label="合成 API Key">
+        <el-input v-model="st.TTS_API_KEY" type="password" show-password placeholder="留空 = 复用 OpenAI Key"></el-input>
+      </el-form-item>
+      <el-form-item label="合成 Base URL">
+        <el-input v-model="st.TTS_BASE_URL" placeholder="第三方兼容网关才填"></el-input>
+      </el-form-item>
+      <el-form-item label="合成模型">
+        <el-input v-model="st.TTS_MODEL" placeholder="gpt-4o-mini-tts"></el-input>
+      </el-form-item>
+      <el-form-item label="音色">
+        <el-input v-model="st.TTS_VOICE" placeholder="onyx（深沉男声）/ echo / alloy"></el-input>
+      </el-form-item>
+
+      <div class="test-row">
+        <el-button size="small" :loading="testing.tts" @click="testTts">保存并试听</el-button>
+        <span :class="['test-msg', testOk.tts ? 'ok' : 'bad']">{{ testMsg.tts }}</span>
+      </div>
+    </el-form>
+
+    <div v-if="isElectron" class="open-links">
+      <span class="dim small">本机文件：</span>
+      <el-button link size="small" @click="icOpen('env')">配置文件</el-button>
+      <el-button link size="small" @click="icOpen('sessions')">面试记录</el-button>
+      <el-button link size="small" @click="icOpen('kb')">知识库</el-button>
+      <el-button link size="small" @click="icOpen('log')">后端日志</el-button>
+    </div>
+
+    <template #footer>
+      <div class="dialog-foot">
+        <span :class="['save-msg', saveOk ? 'ok' : 'bad']">{{ saveMsg }}</span>
+        <el-button @click="showSettings = false">取消</el-button>
+        <el-button type="primary" :loading="savingSettings" @click="saveSettings">保存并生效</el-button>
+      </div>
+    </template>
+  </el-dialog>
+
+</div>
+</el-config-provider>
+</div>
+
+<script src="/static/vendor/vue.global.prod.js"></script>
+<script src="/static/vendor/element-plus.full.min.js"></script>
+<script src="/static/vendor/element-plus-locale-zhcn.min.js"></script>
+<script src="/static/vendor/element-plus-icons.iife.min.js"></script>
+<script src="/static/vendor/marked.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
