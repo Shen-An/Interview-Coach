@@ -775,45 +775,68 @@ const app = createApp({
         body: JSON.stringify({ text, style: this.style }),
       });
       if (!r.ok) throw new Error((await r.json()).detail);
-      const url = URL.createObjectURL(await r.blob());
-      const audio = new Audio(url);
-      this._audio = audio;
-      audio.onplay = () => (this.speaking = true);
-      audio.onended = audio.onerror = () => {
-        this.speaking = false;
-        URL.revokeObjectURL(url);
-        if (this._audio === audio) this._audio = null;
-      };
-      await audio.play();
+      return await r.blob();
     },
 
-    speakLocal(text) {
-      if (!("speechSynthesis" in window)) return;
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "zh-CN";
-      if (this._voice) u.voice = this._voice;
-      // 按厂风格调韵律：压力面快而低，慢厂稳而平
-      const prosody = {
-        "字节": { rate: 1.14, pitch: 0.9 },
-        "美团": { rate: 1.06, pitch: 0.94 },
-        "阿里/蚂蚁": { rate: 1.0, pitch: 0.92 },
-        "腾讯": { rate: 1.0, pitch: 1.0 },
-        "京东": { rate: 0.96, pitch: 0.98 },
-      }[this.style] || { rate: 1.05, pitch: 0.95 };
-      u.rate = prosody.rate;
-      u.pitch = prosody.pitch;
-      u.onstart = () => (this.speaking = true);
-      u.onend = u.onerror = () => (this.speaking = false);
-      speechSynthesis.speak(u);
+    playBlob(blob) {
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        this._audio = audio;
+        let done = false;
+        const fin = () => {
+          if (done) return;
+          done = true;
+          URL.revokeObjectURL(url);
+          if (this._audio === audio) this._audio = null;
+          if (this._audioDone === fin) this._audioDone = null;
+          resolve();
+        };
+        this._audioDone = fin; // stopTTS 靠它解开队列的 await，否则暂停后队列会卡死
+        audio.onplay = () => (this.speaking = true);
+        audio.onended = audio.onerror = fin;
+        audio.play().catch(fin);
+      });
+    },
+
+    speakLocalOne(text) {
+      return new Promise((resolve) => {
+        if (!("speechSynthesis" in window)) return resolve();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = "zh-CN";
+        if (this._voice) u.voice = this._voice;
+        // 按厂风格调韵律：压力面快而低，慢厂稳而平
+        const prosody = {
+          "字节": { rate: 1.14, pitch: 0.9 },
+          "美团": { rate: 1.06, pitch: 0.94 },
+          "阿里/蚂蚁": { rate: 1.0, pitch: 0.92 },
+          "腾讯": { rate: 1.0, pitch: 1.0 },
+          "京东": { rate: 0.96, pitch: 0.98 },
+        }[this.style] || { rate: 1.05, pitch: 0.95 };
+        u.rate = prosody.rate;
+        u.pitch = prosody.pitch;
+        u.onstart = () => (this.speaking = true);
+        u.onend = u.onerror = () => resolve();
+        speechSynthesis.speak(u);
+      });
+    },
+
+    // 音色试听（设置里的按钮）保留整段直出
+    async speakCloud(text) {
+      this.stopTTS();
+      const blob = await this.fetchTTS(text);
+      await this.playBlob(blob);
     },
 
     stopTTS() {
+      this._ttsQueue = [];
+      this._sentBuf = "";
       if ("speechSynthesis" in window) speechSynthesis.cancel();
       if (this._audio) {
         try { this._audio.pause(); } catch {}
         this._audio = null;
       }
+      if (this._audioDone) this._audioDone(); // 解开 playBlob 的 await，队列才能退出
       this.speaking = false;
     },
 
