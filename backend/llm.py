@@ -517,16 +517,17 @@ class LLMClient:
 
     def _chat_openai(
         self, model: str, system: str, messages: list[dict], max_tokens: int,
-        stop: list[str] | None = None, fast: bool = False,
+        stop: list[str] | None = None, fast: bool = False, system_tail: str = "",
     ) -> str:
         if self._force_chat_completions:
-            return self._chat_completions_fallback(model, system, messages, max_tokens, stop, fast)
+            return self._chat_completions_fallback(model, system, messages, max_tokens, stop, fast, system_tail)
         client = self._get_openai()
+        instructions = f"{system}\n\n{system_tail}" if system_tail else system
         try:
             # 同 Anthropic 通路：长输出走流式，避开中转站/CDN 的空闲超时
             with client.responses.stream(
                 model=model,
-                instructions=system,
+                instructions=instructions,
                 input=[{"role": m["role"], "content": m["content"]} for m in messages],
                 max_output_tokens=max_tokens,
                 **({"reasoning": {"effort": "low"}} if fast else {}),
