@@ -301,11 +301,14 @@ def turn(sid: str, req: TurnReq):
         raise HTTPException(400, "空输入")
     s["messages"].append({"role": "user", "content": text})
     system = prompts.build_interviewer_system(s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"))
+    # 阶段进度按面试官已发言次数生成，走动态尾块注入——大头 system 保持字节稳定吃前缀缓存
+    qnum = sum(1 for m in s["messages"] if m["role"] == "assistant")
+    tail = prompts.stage_hint(s["round"], qnum)
     # 一轮面试官的话按提示词要求不超过 120 字，代码题题面也就几百字。给 8192 等于
     # 递给模型一根足够长的绳子去自演整场对话——上限收紧本身就是最有效的一道闸。
     for _ in range(2):
         try:
-            reply = llm.chat(system, s["messages"], max_tokens=1200, stop=LEAK_STOPS)
+            reply = llm.chat(system, s["messages"], max_tokens=1200, stop=LEAK_STOPS, system_tail=tail)
         except Exception as e:  # 网络/鉴权错误直接透传给前端提示
             s["messages"].pop()
             raise HTTPException(502, f"LLM 调用失败：{e}")
