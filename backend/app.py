@@ -322,6 +322,51 @@ def turn(sid: str, req: TurnReq):
     return {"message": reply}
 
 
+@app.post("/api/session/{sid}/turn/stream")
+def turn_stream(sid: str, req: TurnReq):
+    """SSE 版对话：逐字下发，前端边收边念。事件三种：
+    {"d": 增量} / {"done": true, "text": 清洗后的最终文本} / {"err": 错误信息}。
+    最终文本可能比增量拼出来的短（泄漏截断），前端要用它覆盖气泡。"""
+    s = _sessions.get(sid)
+    if not s:
+        raise HTTPException(404, "会话不存在或已结束")
+    text = req.text.strip()
+    if not text:
+        raise HTTPException(400, "空输入")
+    s["messages"].append({"role": "user", "content": text})
+    system = prompts.build_interviewer_system(s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"))
+    qnum = sum(1 for m in s["messages"] if m["role"] == "assistant")
+    tail = prompts.stage_hint(s["round"], qnum)
+
+    def sse(obj: dict) -> str:
+        return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
+
+    def gen():
+        pieces = []
+        try:
+            for d in llm.chat_stream(system, s["messages"], max_tokens=1200,
+                                     stop=LEAK_STOPS, system_tail=tail):
+                pieces.append(d)
+                yield sse({"d": d})
+        except Exception as e:
+            s["messages"].pop()
+            yield sse({"err": f"LLM 调用失败：{e}"})
+            return
+        reply = _sanitize_reply("".join(pieces))
+        if not reply:
+            s["messages"].pop()
+            yield sse({"err": "模型这一轮把两边的话都演完了，已丢弃。换个模型或重说一次。"})
+            return
+        s["messages"].append({"role": "assistant", "content": reply})
+        yield sse({"done": True, "text": reply})
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.post("/api/session/{sid}/end")
 def end_session(sid: str):
     s = _sessions.get(sid)
