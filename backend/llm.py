@@ -537,5 +537,5 @@ class LLMClient:
             if not self._responses_unsupported(e):
                 raise
             self._force_chat_completions = True  # 这个网关没有 Responses API，之后直接走降级
-            return self._chat_completions_fallback(model, system, messages, max_tokens, stop, fast)
+            return self._chat_completions_fallback(model, system, messages, max_tokens, stop, fast, system_tail)
         return self._responses_text(resp)
