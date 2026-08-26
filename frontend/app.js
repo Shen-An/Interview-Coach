@@ -72,6 +72,11 @@ const app = createApp({
       transcribing: false,
       polishing: false,
       speaking: false,
+      streaming: false, // SSE 增量已开始渲染（思考点让位给正在生长的气泡）
+      _ttsQueue: [],
+      _ttsBusy: false,
+      _sentBuf: "",
+      _audioDone: null,
       report: null,
       savedTo: "",
       startedAt: null,
@@ -543,22 +548,64 @@ const app = createApp({
       this.messages.push({ role: "user", content: text });
       this.scrollDown();
       this.busy = true;
+      this.streaming = false;
+      this._sentBuf = "";
+      let holder = null; // 首个增量到达时才建气泡，之前显示思考点
+      const append = (d) => {
+        if (!holder) {
+          holder = { role: "assistant", content: "" };
+          this.messages.push(holder);
+          this.streaming = true;
+        }
+        holder.content += d;
+        this.queueSentences(d); // 攒满一句立刻开始念
+        this.scrollDown();
+      };
       try {
-        const r = await fetch(`/api/session/${this.sessionId}/turn`, {
+        const r = await fetch(`/api/session/${this.sessionId}/turn/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text }),
         });
         if (!r.ok) throw new Error((await r.json()).detail);
-        const d = await r.json();
-        this.messages.push({ role: "assistant", content: d.message });
+        if (!r.body) throw new Error("这个环境不支持流式读取");
+        const reader = r.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "", finalText = null, errMsg = null;
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let i;
+          while ((i = buf.indexOf("\n\n")) >= 0) {
+            const frame = buf.slice(0, i);
+            buf = buf.slice(i + 2);
+            for (const line of frame.split("\n")) {
+              if (!line.startsWith("data: ")) continue;
+              const ev = JSON.parse(line.slice(6));
+              if (ev.d) append(ev.d);
+              else if (ev.err) errMsg = ev.err;
+              else if (ev.done) finalText = ev.text;
+            }
+          }
+        }
+        if (errMsg) throw new Error(errMsg);
+        // 后端清洗可能截掉了泄漏的尾巴，用最终版覆盖气泡
+        if (finalText !== null && holder && holder.content !== finalText) holder.content = finalText;
+        this.flushSentences(); // 末尾不带句号的半句也念出来
         this.scrollDown();
-        this.speak(d.message);
       } catch (e) {
-        this.messages.push({ role: "assistant", content: "（系统错误：" + e.message + "）" });
+        this.stopTTS();
+        if (holder && holder.content) {
+          holder.content += "（——已中断：" + e.message + "）";
+        } else {
+          if (holder) this.messages.pop();
+          this.messages.push({ role: "assistant", content: "（系统错误：" + e.message + "）" });
+        }
         this.scrollDown();
       } finally {
         this.busy = false;
+        this.streaming = false;
       }
     },
 
@@ -655,71 +702,141 @@ const app = createApp({
       this.copy(this.savedTo || "", "存档路径已复制");
     },
 
-    /* ---------- TTS：面试官朗读 ----------
-       三级：配了 key 走付费云端（onyx + 语气指令）→ 没配走 Edge 免费云音（云希男声 + 风格韵律，
-       后端 /api/tts 内部选路）→ 网络挂了才退系统本地音。失败一次后本场跳过云端，不反复等超时 */
-    async speak(text) {
+    /* ---------- TTS：面试官朗读（分句流水线） ----------
+       文本按句进播放队列：SSE 边吐字边攒句，攒满一句立刻入队——第一句到齐就开口，不等全文。
+       队列顺序播放；云端音频在入队时就预取，播上一句的同时下一句已在合成。
+       三级选路不变：付费云端 → Edge 免费云音（后端 /api/tts 内部选）→ 系统本地音。
+       云端失败一次后本场跳过云端，不反复等超时 */
+    speak(text) {
+      // 整段文本入口（开场白等）：同样走分句队列，首句最快开播
       if (!this.ttsOn) return;
-      const clean = text.replace(/[#*`>\-]/g, "");
-      if (!this._cloudTtsDead) {
-        try {
-          await this.speakCloud(clean);
-          return;
-        } catch (e) {
-          this._cloudTtsDead = true;
-          console.warn("云端 TTS 失败，降级本地语音：", e);
-        }
-      }
-      this.speakLocal(clean);
+      this.stopTTS();
+      this.queueSentences(text);
+      this.flushSentences();
     },
 
-    async speakCloud(text) {
-      this.stopTTS();
+    queueSentences(delta) {
+      if (!this.ttsOn) return;
+      this._sentBuf += delta;
+      let m;
+      while ((m = this._sentBuf.match(/[\s\S]*?[。！？!?；;\n]+/))) {
+        this._sentBuf = this._sentBuf.slice(m[0].length);
+        this.enqueueSpeak(m[0]);
+      }
+    },
+    flushSentences() {
+      const rest = this._sentBuf;
+      this._sentBuf = "";
+      if (rest.trim()) this.enqueueSpeak(rest);
+    },
+
+    enqueueSpeak(text) {
+      const clean = text.replace(/[#*`>\-]/g, "").trim();
+      if (!clean) return;
+      const item = { text: clean };
+      if (!this._cloudTtsDead) {
+        item.blob = this.fetchTTS(clean).catch(() => null); // 预取：播上一句时这句已在合成
+      }
+      this._ttsQueue.push(item);
+      this.pumpTTS();
+    },
+
+    async pumpTTS() {
+      if (this._ttsBusy) return;
+      this._ttsBusy = true;
+      try {
+        while (this._ttsQueue.length) {
+          const item = this._ttsQueue.shift();
+          await this.speakOne(item);
+        }
+      } finally {
+        this._ttsBusy = false;
+        this.speaking = false;
+      }
+    },
+
+    async speakOne(item) {
+      if (item.blob) {
+        const blob = await item.blob;
+        if (blob) {
+          await this.playBlob(blob);
+          return;
+        }
+        this._cloudTtsDead = true; // 预取失败：本场剩余句子直接走本地音
+        console.warn("云端 TTS 失败，降级本地语音");
+      }
+      await this.speakLocalOne(item.text);
+    },
+
+    async fetchTTS(text) {
       const r = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, style: this.style }),
       });
       if (!r.ok) throw new Error((await r.json()).detail);
-      const url = URL.createObjectURL(await r.blob());
-      const audio = new Audio(url);
-      this._audio = audio;
-      audio.onplay = () => (this.speaking = true);
-      audio.onended = audio.onerror = () => {
-        this.speaking = false;
-        URL.revokeObjectURL(url);
-        if (this._audio === audio) this._audio = null;
-      };
-      await audio.play();
+      return await r.blob();
     },
 
-    speakLocal(text) {
-      if (!("speechSynthesis" in window)) return;
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "zh-CN";
-      if (this._voice) u.voice = this._voice;
-      // 按厂风格调韵律：压力面快而低，慢厂稳而平
-      const prosody = {
-        "字节": { rate: 1.14, pitch: 0.9 },
-        "美团": { rate: 1.06, pitch: 0.94 },
-        "阿里/蚂蚁": { rate: 1.0, pitch: 0.92 },
-        "腾讯": { rate: 1.0, pitch: 1.0 },
-        "京东": { rate: 0.96, pitch: 0.98 },
-      }[this.style] || { rate: 1.05, pitch: 0.95 };
-      u.rate = prosody.rate;
-      u.pitch = prosody.pitch;
-      u.onstart = () => (this.speaking = true);
-      u.onend = u.onerror = () => (this.speaking = false);
-      speechSynthesis.speak(u);
+    playBlob(blob) {
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        this._audio = audio;
+        let done = false;
+        const fin = () => {
+          if (done) return;
+          done = true;
+          URL.revokeObjectURL(url);
+          if (this._audio === audio) this._audio = null;
+          if (this._audioDone === fin) this._audioDone = null;
+          resolve();
+        };
+        this._audioDone = fin; // stopTTS 靠它解开队列的 await，否则暂停后队列会卡死
+        audio.onplay = () => (this.speaking = true);
+        audio.onended = audio.onerror = fin;
+        audio.play().catch(fin);
+      });
+    },
+
+    speakLocalOne(text) {
+      return new Promise((resolve) => {
+        if (!("speechSynthesis" in window)) return resolve();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = "zh-CN";
+        if (this._voice) u.voice = this._voice;
+        // 按厂风格调韵律：压力面快而低，慢厂稳而平
+        const prosody = {
+          "字节": { rate: 1.14, pitch: 0.9 },
+          "美团": { rate: 1.06, pitch: 0.94 },
+          "阿里/蚂蚁": { rate: 1.0, pitch: 0.92 },
+          "腾讯": { rate: 1.0, pitch: 1.0 },
+          "京东": { rate: 0.96, pitch: 0.98 },
+        }[this.style] || { rate: 1.05, pitch: 0.95 };
+        u.rate = prosody.rate;
+        u.pitch = prosody.pitch;
+        u.onstart = () => (this.speaking = true);
+        u.onend = u.onerror = () => resolve();
+        speechSynthesis.speak(u);
+      });
+    },
+
+    // 音色试听（设置里的按钮）保留整段直出
+    async speakCloud(text) {
+      this.stopTTS();
+      const blob = await this.fetchTTS(text);
+      await this.playBlob(blob);
     },
 
     stopTTS() {
+      this._ttsQueue = [];
+      this._sentBuf = "";
       if ("speechSynthesis" in window) speechSynthesis.cancel();
       if (this._audio) {
         try { this._audio.pause(); } catch {}
         this._audio = null;
       }
+      if (this._audioDone) this._audioDone(); // 解开 playBlob 的 await，队列才能退出
       this.speaking = false;
     },
 

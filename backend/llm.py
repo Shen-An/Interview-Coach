@@ -169,35 +169,42 @@ class LLMClient:
     # ---- unified chat ----
     def chat(
         self, system: str, messages: list[dict], max_tokens: int = 8192,
-        stop: list[str] | None = None, fast: bool = False,
+        stop: list[str] | None = None, fast: bool = False, system_tail: str = "",
     ) -> str:
         """stop：停止序列，用来在 API 端就掐住"模型开始自演下一轮"的开头。
         Anthropic 与 chat/completions 支持；Responses API 没有这个参数，会被忽略。
 
         fast：机械任务（转写纠错这类）用。推理模型默认自适应思考，顺一段话也能想 30 秒；
-        显式压低思考能降到几秒。网关不认这个参数时自动退回普通调用。"""
+        显式压低思考能降到几秒。网关不认这个参数时自动退回普通调用。
+
+        system_tail：每轮都变的小尾巴（面试进度提示这类）。单独一个块拼在 system 之后、
+        缓存断点之外——大头的 system 保持字节不变才能吃到前缀缓存。"""
         return self._rotate(
             {"anthropic": self._chat_anthropic, "openai": self._chat_openai},
-            system, messages, max_tokens, stop, fast,
+            system, messages, max_tokens, stop, fast, system_tail,
         )
 
     def _chat_anthropic(
         self, model: str, system: str, messages: list[dict], max_tokens: int,
-        stop: list[str] | None = None, fast: bool = False,
+        stop: list[str] | None = None, fast: bool = False, system_tail: str = "",
     ) -> str:
         client = self._get_anthropic()
         # 走流式：复盘报告要生成几千字，非流式请求在中转站/CDN 上常被 100s 空闲超时掐断（524），
         # SDK 还会把它当 5xx 重试两次，于是表现为"卡很久最后报 52x"。流式全程有数据在走，不会被判超时。
         # Opus 5：省略 thinking 参数即自适应思考；system 挂 cache_control 复用前缀缓存
+        sys_blocks = [{
+            "type": "text",
+            "text": system,
+            "cache_control": {"type": "ephemeral"},
+        }]
+        if system_tail:  # 动态尾块放缓存断点之后，不搅坏前缀缓存
+            sys_blocks.append({"type": "text", "text": system_tail})
+
         def run(extra: dict):
             with client.messages.stream(
                 model=model,
                 max_tokens=max_tokens,
-                system=[{
-                    "type": "text",
-                    "text": system,
-                    "cache_control": {"type": "ephemeral"},
-                }],
+                system=sys_blocks,
                 messages=messages,
                 **({"stop_sequences": list(stop)} if stop else {}),
                 **extra,
@@ -214,6 +221,104 @@ class LLMClient:
         if resp.stop_reason == "refusal":
             return "（面试官暂时无法回应这个话题，换个问题继续。）"
         return "".join(b.text for b in resp.content if b.type == "text")
+
+    # ---- streaming chat：SSE 逐字吐给前端，边收边念 ----
+    def chat_stream(self, system: str, messages: list[dict], max_tokens: int = 8192,
+                    stop: list[str] | None = None, system_tail: str = ""):
+        """生成器：逐段 yield 文本增量。轮换只在「还没吐出任何字」时发生——
+        吐了半句再换家，候选人会听到两个面试官接力说话。"""
+        errs = []
+        for p in self.chain() or [self.cfg.provider]:
+            fn = self._stream_anthropic if p == "anthropic" else self._stream_openai
+            emitted = False
+            try:
+                for piece in fn(self.model_of(p), system, messages, max_tokens, stop, system_tail):
+                    emitted = True
+                    yield piece
+                return
+            except Exception as e:
+                if emitted:
+                    raise
+                errs.append(f"{p}/{self.model_of(p)}：{e}")
+        raise RuntimeError(
+            "　→ 已自动切换备用，仍失败 → 　".join(errs) if len(errs) > 1
+            else (errs[0] if errs else "没有可用的提供商")
+        )
+
+    def _stream_anthropic(self, model: str, system: str, messages: list[dict], max_tokens: int,
+                          stop: list[str] | None = None, system_tail: str = ""):
+        client = self._get_anthropic()
+        sys_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
+        if system_tail:
+            sys_blocks.append({"type": "text", "text": system_tail})
+        with client.messages.stream(
+            model=model,
+            max_tokens=max_tokens,
+            system=sys_blocks,
+            messages=messages,
+            **({"stop_sequences": list(stop)} if stop else {}),
+        ) as stream:
+            for t in stream.text_stream:
+                if t:
+                    yield t
+            final = stream.get_final_message()
+        if final.stop_reason == "refusal" and not any(
+            b.type == "text" and b.text for b in final.content
+        ):
+            yield "（面试官暂时无法回应这个话题，换个问题继续。）"
+
+    def _stream_openai(self, model: str, system: str, messages: list[dict], max_tokens: int,
+                       stop: list[str] | None = None, system_tail: str = ""):
+        if self._force_chat_completions:
+            yield from self._stream_chat_completions(model, system, messages, max_tokens, stop, system_tail)
+            return
+        client = self._get_openai()
+        instructions = f"{system}\n\n{system_tail}" if system_tail else system
+        emitted = False
+        try:
+            with client.responses.stream(
+                model=model,
+                instructions=instructions,
+                input=[{"role": m["role"], "content": m["content"]} for m in messages],
+                max_output_tokens=max_tokens,
+            ) as stream:
+                for event in stream:
+                    # 只放行正文增量——reasoning 等其它事件流不进候选人耳朵
+                    if getattr(event, "type", "") == "response.output_text.delta":
+                        d = getattr(event, "delta", "") or ""
+                        if d:
+                            emitted = True
+                            yield d
+        except Exception as e:
+            if emitted or not self._responses_unsupported(e):
+                raise
+            self._force_chat_completions = True
+            yield from self._stream_chat_completions(model, system, messages, max_tokens, stop, system_tail)
+
+    def _stream_chat_completions(self, model: str, system: str, messages: list[dict], max_tokens: int,
+                                 stop: list[str] | None = None, system_tail: str = ""):
+        client = self._get_openai()
+        if system_tail:
+            system = f"{system}\n\n{system_tail}"
+        msgs = [{"role": "system", "content": system}] + [
+            {"role": m["role"], "content": m["content"]} for m in messages
+        ]
+        extra = {"stop": list(stop)[:4]} if stop else {}
+
+        def gen(**kw):
+            for chunk in client.chat.completions.create(model=model, messages=msgs, stream=True, **extra, **kw):
+                if chunk.choices:
+                    piece = chunk.choices[0].delta.content
+                    if piece:
+                        yield piece
+
+        try:
+            yield from gen(max_completion_tokens=max_tokens)
+        except Exception as e:
+            # 参数不兼容在首个 chunk 之前就会报，此时还没吐字，重试安全
+            if "max_completion_tokens" not in str(e):
+                raise
+            yield from gen(max_tokens=max_tokens)
 
     # ---- research：带原生 web search 工具的调用（每日知识库更新用） ----
     def research(
@@ -364,9 +469,11 @@ class LLMClient:
 
     def _chat_completions_fallback(
         self, model: str, system: str, messages: list[dict], max_tokens: int,
-        stop: list[str] | None = None, fast: bool = False,
+        stop: list[str] | None = None, fast: bool = False, system_tail: str = "",
     ) -> str:
         client = self._get_openai()
+        if system_tail:  # OpenAI 侧没有显式缓存断点，尾巴拼在 system 末尾即可（前缀缓存仍命中大头）
+            system = f"{system}\n\n{system_tail}"
         msgs = [{"role": "system", "content": system}] + [
             {"role": m["role"], "content": m["content"]} for m in messages
         ]
@@ -410,16 +517,17 @@ class LLMClient:
 
     def _chat_openai(
         self, model: str, system: str, messages: list[dict], max_tokens: int,
-        stop: list[str] | None = None, fast: bool = False,
+        stop: list[str] | None = None, fast: bool = False, system_tail: str = "",
     ) -> str:
         if self._force_chat_completions:
-            return self._chat_completions_fallback(model, system, messages, max_tokens, stop, fast)
+            return self._chat_completions_fallback(model, system, messages, max_tokens, stop, fast, system_tail)
         client = self._get_openai()
+        instructions = f"{system}\n\n{system_tail}" if system_tail else system
         try:
             # 同 Anthropic 通路：长输出走流式，避开中转站/CDN 的空闲超时
             with client.responses.stream(
                 model=model,
-                instructions=system,
+                instructions=instructions,
                 input=[{"role": m["role"], "content": m["content"]} for m in messages],
                 max_output_tokens=max_tokens,
                 **({"reasoning": {"effort": "low"}} if fast else {}),
@@ -429,5 +537,5 @@ class LLMClient:
             if not self._responses_unsupported(e):
                 raise
             self._force_chat_completions = True  # 这个网关没有 Responses API，之后直接走降级
-            return self._chat_completions_fallback(model, system, messages, max_tokens, stop, fast)
+            return self._chat_completions_fallback(model, system, messages, max_tokens, stop, fast, system_tail)
         return self._responses_text(resp)

@@ -16,7 +16,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -73,17 +73,33 @@ def load_resume() -> tuple[str, dict]:
 # 内存会话表：{sid: {round, style, messages: [...], started_at}}
 _sessions: dict[str, dict] = {}
 
-OPENING = (
-    "你好，我是今天的面试官，负责 Agent 平台这块。今天这轮 {round}，前面聊项目，后面有代码题。"
-    "先自我介绍吧，三分钟以内，重点两件事：你的背景，以及为什么选 Agent 方向。"
-    "介绍完直接告诉我，你最想让我深挖的项目是哪个。"
-)
+# 开场白按轮次分开写，承诺的环节必须和 prompts.ROUND_FLOW 的阶段一致，不许开空头支票
+OPENINGS = {
+    ("一面", False): (
+        "你好，我是今天的一面面试官，负责 Agent 平台这块。这轮大概四五十分钟：先聊你的项目，"
+        "然后过一些基础，最后有一道手撕代码——到时候直接在输入框把代码打出来发我就行。"
+        "先自我介绍吧，三分钟以内，介绍完告诉我你最想让我深挖的项目是哪个。"
+    ),
+    ("一面", True): (
+        "你好，我是今天的一面面试官，负责 Agent 平台这块。这轮大概四五十分钟：先按你的简历聊项目，"
+        "然后过一些基础，最后有一道手撕代码，到时候在输入框打出来发我就行。"
+        "简历我看过了，自我介绍简短点，两分钟，重点讲你为什么选 Agent 方向——简历上写的不用复述，我等下挨个问。"
+    ),
+    ("二面", False): (
+        "你好，我是二面面试官，Agent 平台这边的负责人。这轮主要聊你项目里的技术判断，"
+        "会有一道设计题，最后我们聊聊你的想法和规划。"
+        "先花两三分钟介绍下自己，重点讲你最拿得出手的那个项目。"
+    ),
+    ("二面", True): (
+        "你好，我是二面面试官，Agent 平台这边的负责人。你的简历一面反馈我都看过了。"
+        "这轮主要聊你项目里的技术判断，会有一道设计题，最后我们聊聊你的规划。"
+        "简单介绍下自己就行，两分钟，然后我们直接进正题。"
+    ),
+}
 
-OPENING_RESUME = (
-    "你好，我是今天的面试官，负责 Agent 平台这块。今天这轮 {round}，前面聊项目，后面有代码题。"
-    "你的简历我看过了。先花两分钟自我介绍——重点讲你为什么选 Agent 方向，"
-    "简历上的东西不用复述一遍，我等下会挨个问。"
-)
+
+def pick_opening(round_name: str, with_resume: bool) -> str:
+    return OPENINGS.get((round_name, with_resume)) or OPENINGS[("一面", with_resume)]
 
 
 class StartReq(BaseModel):
@@ -262,7 +278,7 @@ def start_session(req: StartReq):
         raise HTTPException(400, detail)
     sid = uuid.uuid4().hex[:12]
     resume_text, resume_meta = load_resume()
-    opening = OPENING_RESUME.format(round=req.round) if resume_text else OPENING.format(round=req.round)
+    opening = pick_opening(req.round, bool(resume_text))
     _sessions[sid] = {
         "round": req.round,
         "style": req.style,
@@ -285,11 +301,14 @@ def turn(sid: str, req: TurnReq):
         raise HTTPException(400, "空输入")
     s["messages"].append({"role": "user", "content": text})
     system = prompts.build_interviewer_system(s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"))
+    # 阶段进度按面试官已发言次数生成，走动态尾块注入——大头 system 保持字节稳定吃前缀缓存
+    qnum = sum(1 for m in s["messages"] if m["role"] == "assistant")
+    tail = prompts.stage_hint(s["round"], qnum)
     # 一轮面试官的话按提示词要求不超过 120 字，代码题题面也就几百字。给 8192 等于
     # 递给模型一根足够长的绳子去自演整场对话——上限收紧本身就是最有效的一道闸。
     for _ in range(2):
         try:
-            reply = llm.chat(system, s["messages"], max_tokens=1200, stop=LEAK_STOPS)
+            reply = llm.chat(system, s["messages"], max_tokens=1200, stop=LEAK_STOPS, system_tail=tail)
         except Exception as e:  # 网络/鉴权错误直接透传给前端提示
             s["messages"].pop()
             raise HTTPException(502, f"LLM 调用失败：{e}")
@@ -301,6 +320,51 @@ def turn(sid: str, req: TurnReq):
         raise HTTPException(502, "模型这一轮把两边的话都演完了，已丢弃。换个模型或重说一次。")
     s["messages"].append({"role": "assistant", "content": reply})
     return {"message": reply}
+
+
+@app.post("/api/session/{sid}/turn/stream")
+def turn_stream(sid: str, req: TurnReq):
+    """SSE 版对话：逐字下发，前端边收边念。事件三种：
+    {"d": 增量} / {"done": true, "text": 清洗后的最终文本} / {"err": 错误信息}。
+    最终文本可能比增量拼出来的短（泄漏截断），前端要用它覆盖气泡。"""
+    s = _sessions.get(sid)
+    if not s:
+        raise HTTPException(404, "会话不存在或已结束")
+    text = req.text.strip()
+    if not text:
+        raise HTTPException(400, "空输入")
+    s["messages"].append({"role": "user", "content": text})
+    system = prompts.build_interviewer_system(s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"))
+    qnum = sum(1 for m in s["messages"] if m["role"] == "assistant")
+    tail = prompts.stage_hint(s["round"], qnum)
+
+    def sse(obj: dict) -> str:
+        return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
+
+    def gen():
+        pieces = []
+        try:
+            for d in llm.chat_stream(system, s["messages"], max_tokens=1200,
+                                     stop=LEAK_STOPS, system_tail=tail):
+                pieces.append(d)
+                yield sse({"d": d})
+        except Exception as e:
+            s["messages"].pop()
+            yield sse({"err": f"LLM 调用失败：{e}"})
+            return
+        reply = _sanitize_reply("".join(pieces))
+        if not reply:
+            s["messages"].pop()
+            yield sse({"err": "模型这一轮把两边的话都演完了，已丢弃。换个模型或重说一次。"})
+            return
+        s["messages"].append({"role": "assistant", "content": reply})
+        yield sse({"done": True, "text": reply})
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/api/session/{sid}/end")
