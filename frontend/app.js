@@ -70,12 +70,12 @@ const app = createApp({
       busy: false,
       recording: false,
       transcribing: false,
-      polishing: false,
       speaking: false,
       streaming: false, // SSE 增量已开始渲染（思考点让位给正在生长的气泡）
       _ttsQueue: [],
       _ttsBusy: false,
       _sentBuf: "",
+      _firstChunk: true, // 本轮 TTS 还没开过口：首块允许在逗号处提前切出
       _audioDone: null,
       report: null,
       savedTo: "",
