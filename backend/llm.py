@@ -170,23 +170,44 @@ class LLMClient:
     def chat(
         self, system: str, messages: list[dict], max_tokens: int = 8192,
         stop: list[str] | None = None, fast: bool = False, system_tail: str = "",
+        cache_last: bool = False,
     ) -> str:
         """stop：停止序列，用来在 API 端就掐住"模型开始自演下一轮"的开头。
         Anthropic 与 chat/completions 支持；Responses API 没有这个参数，会被忽略。
 
-        fast：机械任务（转写纠错这类）用。推理模型默认自适应思考，顺一段话也能想 30 秒；
-        显式压低思考能降到几秒。网关不认这个参数时自动退回普通调用。
+        fast：对话轮和机械任务用。推理模型默认自适应思考，一句 120 字的面试官回话
+        也能先想 30 秒——候选人那头就是干等；显式压低思考能降到几秒。
+        网关不认这个参数时自动退回普通调用。
 
         system_tail：每轮都变的小尾巴（面试进度提示这类）。单独一个块拼在 system 之后、
-        缓存断点之外——大头的 system 保持字节不变才能吃到前缀缓存。"""
+        缓存断点之外——大头的 system 保持字节不变才能吃到前缀缓存。
+
+        cache_last：多轮对话专用。system 的断点只护住提示词，对话历史每轮都全价重算，
+        40 分钟面到后半场 TTFT 线性变慢；在最后一条消息也挂断点，历史就成了增量缓存。
+        一次性调用（复盘/纠错）别开，白付 25% 的缓存写入费。"""
         return self._rotate(
             {"anthropic": self._chat_anthropic, "openai": self._chat_openai},
-            system, messages, max_tokens, stop, fast, system_tail,
+            system, messages, max_tokens, stop, fast, system_tail, cache_last,
         )
+
+    @staticmethod
+    def _cache_tail(messages: list[dict]) -> list[dict]:
+        """最后一条消息挂缓存断点。每轮断点后移，服务端按最长前缀命中上一轮的缓存，
+        实际只算新增的一问一答。"""
+        last = messages[-1]
+        return messages[:-1] + [{
+            "role": last["role"],
+            "content": [{
+                "type": "text",
+                "text": last["content"],
+                "cache_control": {"type": "ephemeral"},
+            }],
+        }]
 
     def _chat_anthropic(
         self, model: str, system: str, messages: list[dict], max_tokens: int,
         stop: list[str] | None = None, fast: bool = False, system_tail: str = "",
+        cache_last: bool = False,
     ) -> str:
         client = self._get_anthropic()
         # 走流式：复盘报告要生成几千字，非流式请求在中转站/CDN 上常被 100s 空闲超时掐断（524），
