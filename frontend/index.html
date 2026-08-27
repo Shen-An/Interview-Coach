@@ -277,18 +277,17 @@
             <div class="spacer"></div>
             <span v-if="recording" class="rec-flag">录音中，说完点「停止并发送」</span>
             <span v-else-if="transcribing" class="rec-flag">正在转写…</span>
-            <span v-else-if="polishing" class="rec-flag">正在修正识别…</span>
             <span v-else class="dim small">Ctrl + Enter 发送</span>
           </div>
 
           <div class="composer-main">
             <button type="button" :class="['mic', { rec: recording, wait: transcribing }]"
-                    :disabled="busy || transcribing || polishing || !sttAvailable" @click="toggleMic">
+                    :disabled="busy || transcribing || !sttAvailable" @click="toggleMic">
               <span v-if="recording" class="meter live" :class="{ breathe: !meterLive }">
                 <i v-for="(b, k) in meterBars" :key="k" :style="{ transform: 'scaleY(' + b + ')' }"></i>
               </span>
               <el-icon v-else class="mic-ico"><icon-microphone></icon-microphone></el-icon>
-              <span class="mic-label">{{ transcribing ? '转写中' : (polishing ? '修正中' : (recording ? '停止并发送' : '按下说话')) }}</span>
+              <span class="mic-label">{{ transcribing ? '转写中' : (recording ? '停止并发送' : '按下说话') }}</span>
             </button>
             <el-input v-model="draft" type="textarea" :autosize="{ minRows: 2, maxRows: 6 }"
                       :disabled="busy" resize="none"
