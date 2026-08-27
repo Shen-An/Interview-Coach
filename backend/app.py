@@ -136,8 +136,6 @@ OPENAI_BASE_URL={OPENAI_BASE_URL}
 STT_API_KEY={STT_API_KEY}
 STT_BASE_URL={STT_BASE_URL}
 STT_MODEL={STT_MODEL}
-# 语音输入后用对话模型顺一遍转写（修同音错字/术语，不润色）：on / off
-STT_REWRITE={STT_REWRITE}
 
 # --- 面试官语音合成（OpenAI 兼容 /audio/speech；留空则用 Windows 本地语音） ---
 TTS_API_KEY={TTS_API_KEY}
