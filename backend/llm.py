@@ -221,24 +221,30 @@ class LLMClient:
         if system_tail:  # 动态尾块放缓存断点之后，不搅坏前缀缓存
             sys_blocks.append({"type": "text", "text": system_tail})
 
-        def run(extra: dict):
-            with client.messages.stream(
-                model=model,
-                max_tokens=max_tokens,
-                system=sys_blocks,
-                messages=messages,
-                **({"stop_sequences": list(stop)} if stop else {}),
-                **extra,
-            ) as stream:
-                return stream.get_final_message()
-
-        try:
-            # fast 下显式关掉思考：改写这种机械活，自适应思考能让它想上半分钟。
-            resp = run({"thinking": {"type": "disabled"}} if fast else {})
-        except Exception as e:
-            if not fast or "thinking" not in str(e).lower():
+        # 中转站可能不认 thinking / 消息级 cache_control：逐个摘掉重试，最差退成裸调用
+        thinking_off = fast
+        cache = cache_last and len(messages) > 1
+        while True:
+            try:
+                with client.messages.stream(
+                    model=model,
+                    max_tokens=max_tokens,
+                    system=sys_blocks,
+                    messages=self._cache_tail(messages) if cache else messages,
+                    **({"stop_sequences": list(stop)} if stop else {}),
+                    **({"thinking": {"type": "disabled"}} if thinking_off else {}),
+                ) as stream:
+                    resp = stream.get_final_message()
+                break
+            except Exception as e:
+                s = str(e).lower()
+                if thinking_off and "thinking" in s:
+                    thinking_off = False      # 不认就照常跑，只是慢
+                    continue
+                if cache and "cache" in s:
+                    cache = False
+                    continue
                 raise
-            resp = run({})          # 中转站/旧模型不认这个参数，照常跑，只是慢
         if resp.stop_reason == "refusal":
             return "（面试官暂时无法回应这个话题，换个问题继续。）"
         return "".join(b.text for b in resp.content if b.type == "text")
