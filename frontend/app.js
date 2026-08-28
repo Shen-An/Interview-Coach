@@ -316,7 +316,6 @@ const app = createApp({
         this.st = { LLM_PROVIDER: "anthropic" };
       }
       if (!this.st.LLM_PROVIDER) this.st.LLM_PROVIDER = "anthropic";
-      if (!this.st.STT_REWRITE) this.st.STT_REWRITE = "on";   // .env 里没写过就是默认开
       this.saveMsg = "";
       this.micTest.msg = "";
       this.showSettings = true;
