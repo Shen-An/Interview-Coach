@@ -163,7 +163,6 @@ def save_settings(req: SettingsReq):
     vals["ANTHROPIC_MODEL"] = vals["ANTHROPIC_MODEL"] or "claude-opus-5"
     vals["OPENAI_MODEL"] = vals["OPENAI_MODEL"] or "gpt-5"
     vals["STT_MODEL"] = vals["STT_MODEL"] or "gpt-4o-mini-transcribe"
-    vals["STT_REWRITE"] = "off" if vals["STT_REWRITE"] == "off" else "on"
     vals["TTS_MODEL"] = vals["TTS_MODEL"] or "gpt-4o-mini-tts"
     vals["TTS_VOICE"] = vals["TTS_VOICE"] or "onyx"
     ENV_PATH.write_text(ENV_TEMPLATE.format(**vals), encoding="utf-8")
