@@ -251,15 +251,19 @@ class LLMClient:
 
     # ---- streaming chat：SSE 逐字吐给前端，边收边念 ----
     def chat_stream(self, system: str, messages: list[dict], max_tokens: int = 8192,
-                    stop: list[str] | None = None, system_tail: str = ""):
+                    stop: list[str] | None = None, system_tail: str = "",
+                    fast: bool = False, cache_last: bool = False):
         """生成器：逐段 yield 文本增量。轮换只在「还没吐出任何字」时发生——
-        吐了半句再换家，候选人会听到两个面试官接力说话。"""
+        吐了半句再换家，候选人会听到两个面试官接力说话。
+        fast / cache_last 语义同 chat()：面试轮必开——首字延迟的大头是模型
+        开口前的自适应思考，其次是越滚越长的未缓存历史。"""
         errs = []
         for p in self.chain() or [self.cfg.provider]:
             fn = self._stream_anthropic if p == "anthropic" else self._stream_openai
             emitted = False
             try:
-                for piece in fn(self.model_of(p), system, messages, max_tokens, stop, system_tail):
+                for piece in fn(self.model_of(p), system, messages, max_tokens,
+                                stop, system_tail, fast, cache_last):
                     emitted = True
                     yield piece
                 return
