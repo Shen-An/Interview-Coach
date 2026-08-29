@@ -277,41 +277,67 @@ class LLMClient:
         )
 
     def _stream_anthropic(self, model: str, system: str, messages: list[dict], max_tokens: int,
-                          stop: list[str] | None = None, system_tail: str = ""):
+                          stop: list[str] | None = None, system_tail: str = "",
+                          fast: bool = False, cache_last: bool = False):
         client = self._get_anthropic()
         sys_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
         if system_tail:
             sys_blocks.append({"type": "text", "text": system_tail})
-        with client.messages.stream(
-            model=model,
-            max_tokens=max_tokens,
-            system=sys_blocks,
-            messages=messages,
-            **({"stop_sequences": list(stop)} if stop else {}),
-        ) as stream:
-            for t in stream.text_stream:
-                if t:
-                    yield t
-            final = stream.get_final_message()
-        if final.stop_reason == "refusal" and not any(
-            b.type == "text" and b.text for b in final.content
-        ):
-            yield "（面试官暂时无法回应这个话题，换个问题继续。）"
+        # 参数级降级只在还没吐字时安全：中转站不认 thinking / 消息级 cache_control 的话
+        # 逐个摘掉重试；吐过字就只能把错误抛给上层。
+        thinking_off = fast
+        cache = cache_last and len(messages) > 1
+        while True:
+            emitted = False
+            try:
+                with client.messages.stream(
+                    model=model,
+                    max_tokens=max_tokens,
+                    system=sys_blocks,
+                    messages=self._cache_tail(messages) if cache else messages,
+                    **({"stop_sequences": list(stop)} if stop else {}),
+                    **({"thinking": {"type": "disabled"}} if thinking_off else {}),
+                ) as stream:
+                    for t in stream.text_stream:
+                        if t:
+                            emitted = True
+                            yield t
+                    final = stream.get_final_message()
+                if final.stop_reason == "refusal" and not any(
+                    b.type == "text" and b.text for b in final.content
+                ):
+                    yield "（面试官暂时无法回应这个话题，换个问题继续。）"
+                return
+            except Exception as e:
+                if emitted:
+                    raise
+                s = str(e).lower()
+                if thinking_off and "thinking" in s:
+                    thinking_off = False
+                    continue
+                if cache and "cache" in s:
+                    cache = False
+                    continue
+                raise
 
     def _stream_openai(self, model: str, system: str, messages: list[dict], max_tokens: int,
-                       stop: list[str] | None = None, system_tail: str = ""):
+                       stop: list[str] | None = None, system_tail: str = "",
+                       fast: bool = False, cache_last: bool = False):
+        # cache_last 只对 Anthropic 有意义：OpenAI 侧前缀缓存是全自动的
         if self._force_chat_completions:
-            yield from self._stream_chat_completions(model, system, messages, max_tokens, stop, system_tail)
+            yield from self._stream_chat_completions(model, system, messages, max_tokens,
+                                                     stop, system_tail, fast)
             return
         client = self._get_openai()
         instructions = f"{system}\n\n{system_tail}" if system_tail else system
-        emitted = False
-        try:
+
+        def once(low_effort: bool):
             with client.responses.stream(
                 model=model,
                 instructions=instructions,
                 input=[{"role": m["role"], "content": m["content"]} for m in messages],
                 max_output_tokens=max_tokens,
+                **({"reasoning": {"effort": "low"}} if low_effort else {}),
             ) as stream:
                 for event in stream:
                     # 只放行正文增量——reasoning 等其它事件流不进候选人耳朵
