@@ -174,7 +174,6 @@ def save_settings(req: SettingsReq):
     llm = LLMClient()  # 热重建客户端，立即生效
     ok, detail = llm.ready()
     return {"ready": ok, "detail": detail,
-            "stt_rewrite": _rewrite_on(),
             "stt_api_ready": bool(os.getenv("STT_API_KEY") or os.getenv("OPENAI_API_KEY"))}
 
 
