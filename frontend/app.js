@@ -721,6 +721,14 @@ const app = createApp({
       while ((m = this._sentBuf.match(/[\s\S]*?[。！？!?；;\n]+/))) {
         this._sentBuf = this._sentBuf.slice(m[0].length);
         this.enqueueSpeak(m[0]);
+        this._firstChunk = false;
+      }
+      // 首块提前开口：整句还没成形时先把第一个逗号前的半句送去合成，
+      // 面试官第一声能早出零点几秒到一秒多；之后恢复整句粒度，语调才自然。
+      if (this._firstChunk && (m = this._sentBuf.match(/[\s\S]+?[，、,]/))) {
+        this._sentBuf = this._sentBuf.slice(m[0].length);
+        this.enqueueSpeak(m[0]);
+        this._firstChunk = false;
       }
     },
     flushSentences() {
