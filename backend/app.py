@@ -189,7 +189,6 @@ def get_config():
         "model": llm.model_of(primary) if chain else "",
         "fallback": f"{chain[1]} / {llm.model_of(chain[1])}" if len(chain) > 1 else "",
         "stt_api_ready": bool(os.getenv("STT_API_KEY") or os.getenv("OPENAI_API_KEY")),
-        "stt_rewrite": _rewrite_on(),
         "tts_api_ready": bool(os.getenv("TTS_API_KEY") or (os.getenv("TTS_BASE_URL") and os.getenv("OPENAI_API_KEY")) or (os.getenv("OPENAI_API_KEY") and os.getenv("TTS_MODEL"))),
         "env_path": str(ENV_PATH),
         "resume": _resume_state(),
