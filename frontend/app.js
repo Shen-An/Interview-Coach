@@ -838,6 +838,7 @@ const app = createApp({
     stopTTS() {
       this._ttsQueue = [];
       this._sentBuf = "";
+      this._firstChunk = true;
       if ("speechSynthesis" in window) speechSynthesis.cancel();
       if (this._audio) {
         try { this._audio.pause(); } catch {}
