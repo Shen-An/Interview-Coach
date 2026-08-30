@@ -344,16 +344,29 @@ class LLMClient:
                     if getattr(event, "type", "") == "response.output_text.delta":
                         d = getattr(event, "delta", "") or ""
                         if d:
-                            emitted = True
                             yield d
+
+        emitted = False
+        try:
+            for d in once(fast):
+                emitted = True
+                yield d
+            return
         except Exception as e:
-            if emitted or not self._responses_unsupported(e):
+            if emitted:
+                raise
+            if fast and "reasoning" in str(e).lower():  # 网关不认 reasoning 参数，摘掉重试
+                yield from once(False)
+                return
+            if not self._responses_unsupported(e):
                 raise
             self._force_chat_completions = True
-            yield from self._stream_chat_completions(model, system, messages, max_tokens, stop, system_tail)
+            yield from self._stream_chat_completions(model, system, messages, max_tokens,
+                                                     stop, system_tail, fast)
 
     def _stream_chat_completions(self, model: str, system: str, messages: list[dict], max_tokens: int,
-                                 stop: list[str] | None = None, system_tail: str = ""):
+                                 stop: list[str] | None = None, system_tail: str = "",
+                                 fast: bool = False):
         client = self._get_openai()
         if system_tail:
             system = f"{system}\n\n{system_tail}"
