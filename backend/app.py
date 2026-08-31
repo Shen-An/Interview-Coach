@@ -296,9 +296,12 @@ def turn(sid: str, req: TurnReq):
     tail = prompts.stage_hint(s["round"], qnum)
     # 一轮面试官的话按提示词要求不超过 120 字，代码题题面也就几百字。给 8192 等于
     # 递给模型一根足够长的绳子去自演整场对话——上限收紧本身就是最有效的一道闸。
+    # fast：面试轮关思考——120 字的回话不值得先想半分钟，候选人在干等；
+    # cache_last：对话历史增量缓存，后半场首字延迟不随轮次上涨。
     for _ in range(2):
         try:
-            reply = llm.chat(system, s["messages"], max_tokens=1200, stop=LEAK_STOPS, system_tail=tail)
+            reply = llm.chat(system, s["messages"], max_tokens=1200, stop=LEAK_STOPS,
+                             system_tail=tail, fast=True, cache_last=True)
         except Exception as e:  # 网络/鉴权错误直接透传给前端提示
             s["messages"].pop()
             raise HTTPException(502, f"LLM 调用失败：{e}")
