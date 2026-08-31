@@ -906,11 +906,9 @@ const app = createApp({
       }
       this.interim = "";
       this.stopMeter();
-      // 等最后一段 final 结果落地，再过一遍转写后处理
-      if (send) setTimeout(async () => {
-        this.draft = await this.polish(this.draft);
-        this.sendDraft();
-      }, 250);
+      // 等最后一段 final 结果落地就直接发送。转写错字不再单独过一遍模型修正——
+      // 那是每轮多一次完整 LLM 往返；面试官提示词里有转写容错，原文照发它自己会懂。
+      if (send) setTimeout(() => this.sendDraft(), 250);
     },
 
     /* ---------- 麦克风设备 ---------- */
