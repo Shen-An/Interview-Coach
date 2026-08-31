@@ -374,6 +374,8 @@ class LLMClient:
             {"role": m["role"], "content": m["content"]} for m in messages
         ]
         extra = {"stop": list(stop)[:4]} if stop else {}
+        if fast:
+            extra["reasoning_effort"] = "low"
 
         def gen(**kw):
             for chunk in client.chat.completions.create(model=model, messages=msgs, stream=True, **extra, **kw):
