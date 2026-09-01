@@ -338,7 +338,8 @@ def turn_stream(sid: str, req: TurnReq):
         pieces = []
         try:
             for d in llm.chat_stream(system, s["messages"], max_tokens=1200,
-                                     stop=LEAK_STOPS, system_tail=tail):
+                                     stop=LEAK_STOPS, system_tail=tail,
+                                     fast=True, cache_last=True):
                 pieces.append(d)
                 yield sse({"d": d})
         except Exception as e:
