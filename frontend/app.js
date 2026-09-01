@@ -1029,28 +1029,6 @@ const app = createApp({
         ElMessage.error("无法访问麦克风：" + e.message);
       }
     },
-    /* ---------- 转写后处理：语音输入过一遍对话模型，修同音错字和术语 ----------
-       只走语音路径，打字输入不碰。任何失败都原样返回，绝不让它挡住作答。 */
-    async polish(text) {
-      const t = (text || "").trim();
-      if (!t || this.cfg.stt_rewrite === false) return t;
-      this.polishing = true;
-      try {
-        const r = await fetch("/api/rewrite", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: t, session_id: this.sessionId || "" }),
-        });
-        if (!r.ok) return t;
-        const d = await r.json();
-        return d.text || t;
-      } catch {
-        return t;
-      } finally {
-        this.polishing = false;
-      }
-    },
-
     stopRecorder(send) {
       const mr = this._media;
       if (!mr) return;
