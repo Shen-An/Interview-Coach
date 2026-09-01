@@ -388,7 +388,13 @@ class LLMClient:
             yield from gen(max_completion_tokens=max_tokens)
         except Exception as e:
             # 参数不兼容在首个 chunk 之前就会报，此时还没吐字，重试安全
-            if "max_completion_tokens" not in str(e):
+            s = str(e)
+            if "reasoning_effort" in s and "reasoning_effort" in extra:
+                extra.pop("reasoning_effort")
+                yield from self._stream_chat_completions(model, system, messages, max_tokens,
+                                                         stop, "", False)
+                return
+            if "max_completion_tokens" not in s:
                 raise
             yield from gen(max_tokens=max_tokens)
 
