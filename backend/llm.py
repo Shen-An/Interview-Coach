@@ -596,6 +596,7 @@ class LLMClient:
     def _chat_openai(
         self, model: str, system: str, messages: list[dict], max_tokens: int,
         stop: list[str] | None = None, fast: bool = False, system_tail: str = "",
+        cache_last: bool = False,  # OpenAI 侧前缀缓存全自动，参数只为对齐签名
     ) -> str:
         if self._force_chat_completions:
             return self._chat_completions_fallback(model, system, messages, max_tokens, stop, fast, system_tail)
