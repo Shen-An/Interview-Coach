@@ -710,40 +710,6 @@ async def stt(file: UploadFile):
     return {"text": resp.text}
 
 
-# ---- 语音转写后处理：用对话模型把识别错的术语修回来 ----
-
-def _rewrite_on() -> bool:
-    return os.getenv("STT_REWRITE", "on").strip().lower() != "off"
-
-
-@app.post("/api/rewrite")
-def rewrite(req: RewriteReq):
-    """转写质量差时的补救：把会话上下文（面试官刚问的问题 + 简历）喂给对话模型，
-    让它判断候选人说的到底是哪个术语。没有上下文的话模型也猜不出「从盘卡」是 cross-encoder。
-
-    这条路上任何异常都降级成原文返回——改写是锦上添花，为它卡住作答就是本末倒置。"""
-    text = (req.text or "").strip()
-    if not text or not _rewrite_on():
-        return {"text": text, "changed": False}
-    s = _sessions.get(req.session_id) or {}
-    last_q = next(
-        (m["content"] for m in reversed(s.get("messages", [])) if m["role"] == "assistant"),
-        "",
-    )
-    prompt = prompts.build_rewrite_prompt(text, last_q, s.get("resume", ""))
-    try:
-        # 额度给足：推理模型的 thinking 也从这里扣，抠门的话正文就空了
-        out = llm.chat(prompts.REWRITE_SYSTEM, [{"role": "user", "content": prompt}],
-                       max_tokens=4000, stop=LEAK_STOPS, fast=True)
-    except Exception:
-        return {"text": text, "changed": False}
-    out = _sanitize_reply(out)
-    # 模型不听话跑去回答问题时，输出会显著变长；长度失控就当它没改过
-    if not out or len(out) > max(120, len(text) * 2):
-        return {"text": text, "changed": False}
-    return {"text": out, "changed": out != text, "original": text}
-
-
 # ---- 静态前端 ----
 FRONTEND = RES_DIR / "frontend"
 
