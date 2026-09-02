@@ -1051,8 +1051,7 @@ const app = createApp({
           if (!r.ok) throw new Error((await r.json()).detail);
           const d = await r.json();
           if (d.text) {
-            const fixed = await this.polish(d.text);
-            this.draft = (this.draft ? this.draft + " " : "") + fixed;
+            this.draft = (this.draft ? this.draft + " " : "") + d.text;
             this.sendDraft();
           } else {
             ElMessage.warning("没识别到内容，再说一次或者直接打字");
