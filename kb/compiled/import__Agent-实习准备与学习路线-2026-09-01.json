@@ -1,0 +1,254 @@
+{
+  "meta": {
+    "kind": "import",
+    "source": "Agent-实习准备与学习路线-2026-09-01.md",
+    "slug": "import__Agent-实习准备与学习路线-2026-09-01",
+    "raw_file": "import__Agent-实习准备与学习路线-2026-09-01.md",
+    "raw_chars": 3657,
+    "compiled_at": "2026-09-02T09:22:00",
+    "recompiled_at": "2026-09-02T19:46:59",
+    "section_title": "2026-09-02 09:22 · 来自 Agent-实习准备与学习路线-2026-09-01.md",
+    "model": "anthropic/claude-opus-5"
+  },
+  "topic": [
+    "字节豆包Seed ReAct与容错",
+    "向量索引选型HNSW/IVF/PQ",
+    "小红书LangGraph子图与Skills",
+    "Auto Mode RCE与subagent删库",
+    "模型弃用涨价与MCP网关治理"
+  ],
+  "questions": [
+    {
+      "q": "多工具连续调用时，如何保证调用顺序正确、输出合规、多个工具的结果不串？",
+      "company": "网易/美团",
+      "frequency": "必考",
+      "answer_hint": "调用前校验入参、调用后校验返回，双向 JSON Schema 卡住格式；用状态机校验每步前置条件是否满足；结果按 tool_call_id 绑定回对应调用，避免串号；同一工具连续失败 N 次触发熔断并降级。",
+      "platform": ""
+    },
+    {
+      "q": "向量库的分片策略怎么设计，海量文档下召回效果和性能如何优化？",
+      "company": "网易/美团",
+      "frequency": "高频",
+      "answer_hint": "按业务域、时间冷热、Embedding 版本三个维度分片；检索链路用 IVF 粗排加 HNSW 精排，配 PQ 量化压内存；叠加元数据过滤缩小候选集，热点 query 结果做缓存。",
+      "platform": ""
+    },
+    {
+      "q": "HNSW、IVF、PQ、Flat 这几种向量索引怎么选，各自的适用边界是什么？",
+      "company": "网易/美团",
+      "frequency": "高频",
+      "answer_hint": "百万级以内追求高精度选 HNSW，代价是内存占用大；千万级选 IVF；亿级且内存受限用 IVF-PQ，接受一定精度损失；十万级以内需要精确检索直接用 Flat 暴力搜。",
+      "platform": ""
+    },
+    {
+      "q": "ReAct 循环具体怎么实现，每一步的输入输出格式如何约定，循环什么时候终止？",
+      "company": "字节豆包 Seed",
+      "frequency": "必考",
+      "answer_hint": "输入是 System 提示加工具 Schema 加历史轨迹；输出先 Thought 再给结构化 tool_calls，执行后回灌 Observation；终止条件三类，任务完成、达到最大步数、出错退出。",
+      "platform": ""
+    },
+    {
+      "q": "LLM 返回的 tool call 格式不合法或参数错误时怎么容错？",
+      "company": "字节豆包 Seed",
+      "frequency": "必考",
+      "answer_hint": "三层兜底：先宽松解析，解析失败让模型重新生成；再用 Pydantic 做参数校验，失败时把明确报错信息回传给模型；工具执行失败则把错误回灌，让模型重试、换工具或降级。",
+      "platform": ""
+    },
+    {
+      "q": "多个 Agent 之间怎么通信，子 Agent 挂掉或超时怎么兜底？",
+      "company": "字节豆包 Seed",
+      "frequency": "高频",
+      "answer_hint": "通信方式有共享 State 黑板、消息队列、直接函数调用三种；每个子 Agent 配独立超时与预算，超时返回部分结果，由父 Agent 决策重试、换 Agent、降级还是转人工介入。",
+      "platform": ""
+    },
+    {
+      "q": "多轮对话中如何保证 Agent 不忘记用户的核心意图？",
+      "company": "字节豆包 Seed",
+      "frequency": "高频",
+      "answer_hint": "在 State 里显式维护 core_intent 字段，每轮做意图漂移校验；定期用 LLM 做摘要压缩但保留目标描述；每轮输出目标完成度打分，偏离时主动纠回。",
+      "platform": ""
+    },
+    {
+      "q": "Agent 的成本怎么控制，效果评测指标体系怎么搭？",
+      "company": "字节豆包 Seed",
+      "frequency": "高频",
+      "answer_hint": "成本侧做 Prompt 压缩、模型路由分级、工具调用批处理、单 session token 上限；指标侧看任务完成率、幻觉率、工具调用准确率、P99 延迟、cost per task。",
+      "platform": ""
+    },
+    {
+      "q": "Agent 的长短期记忆分别怎么实现，摘要压缩在什么条件下触发？",
+      "company": "字节豆包 Seed",
+      "frequency": "高频",
+      "answer_hint": "短期记忆靠上下文窗口加 State，长期记忆用向量库存用户偏好与事实、用数据库存结构化规则；压缩触发条件是接近窗口上限、对话轮数超阈值、新会话开始时做归档。",
+      "platform": ""
+    },
+    {
+      "q": "LangGraph 里三个子图之间怎么传数据，为什么不直接写成一条 Pipeline？",
+      "company": "小红书",
+      "frequency": "高频",
+      "answer_hint": "每个节点接收并返回完整 State，靠条件边做路由；拆子图换来的是可单独测试、可复用、可扩展和错误隔离，单条 Pipeline 做不到局部失败不扩散。",
+      "platform": ""
+    },
+    {
+      "q": "Skills 的知识进化闭环怎么搭，为什么不把这些知识直接写进 Prompt？",
+      "company": "小红书",
+      "frequency": "高频",
+      "answer_hint": "闭环是采集用户修正、抽成技能模板、入向量库、检索时按需注入、根据反馈迭代；Prompt 硬编码会持续膨胀且难维护，Skills 实现知识与提示解耦、按需注入、可观测可回滚。",
+      "platform": ""
+    },
+    {
+      "q": "高并发场景下 Agent 会话怎么设计，怎么保证会话之间互不干扰？",
+      "company": "腾讯",
+      "frequency": "高频",
+      "answer_hint": "每会话独立 State，用 asyncio 或线程池做执行隔离；每会话设 token、工具调用次数、时长三类配额；State 落 Redis 持久化，支持断线后恢复。",
+      "platform": ""
+    },
+    {
+      "q": "MySQL 的 MVCC 怎么做到读写不阻塞，InnoDB 的行锁什么时候会退化成表锁？",
+      "company": "腾讯",
+      "frequency": "高频",
+      "answer_hint": "MVCC 靠 undo log 加 read view 构造一致性快照，读不加锁所以读写互不阻塞；InnoDB 的行锁是加在索引记录上的，条件字段没有索引走全表扫描时锁范围扩大，效果等同表锁。",
+      "platform": ""
+    },
+    {
+      "q": "线上服务 OOM 和 CPU 占用飙高分别怎么定位，线程池参数怎么定？",
+      "company": "腾讯",
+      "frequency": "高频",
+      "answer_hint": "OOM 先 dump heap，再用 MAT 找大对象和引用链定位泄漏点；CPU 高用 top 定位到进程和线程，转十六进制后 jstack 抓热点线程栈；线程池按任务是 CPU 密集还是 IO 密集定核心与最大线程数，并明确队列容量和拒绝策略。",
+      "platform": ""
+    },
+    {
+      "q": "你对自己做的 Agent 做过哪些优化，效果怎么量化？",
+      "company": "阿里",
+      "frequency": "高频",
+      "answer_hint": "先用 trace 把耗时拆开，看 TTFT、TBT、工具耗时、排队、上下文组装各占多少；再针对性做模型路由与缓存、并行批处理与超时降级、扩并发削峰；最后给出 P50/P95/P99 与 cost per task 的优化前后数字。",
+      "platform": ""
+    },
+    {
+      "q": "Opus 5 的 Auto Mode 被以 60% 到 80% 成功率打出 RCE，攻击链是什么，你会怎么防？",
+      "company": "Embrace The Red",
+      "frequency": "必考",
+      "answer_hint": "攻击链是诱导 WebFetch 改用 curl 下载 ZIP，解压后利用 Python 模块 shadowing，恶意 struct.py 在 import 时被执行；防御是高危操作不进自动批准白名单、用一次性沙箱、限制工作目录白名单、PreToolUse 钩子做风险评分、留审计与快照可回滚。",
+      "platform": ""
+    }
+  ],
+  "scenarios": [
+    {
+      "title": "企业知识库 RAG 索引选型与扩容",
+      "background": "为企业内部知识库做检索方案，文档已向量化，需要在给定内存预算下同时满足延迟和召回要求，并预留后续扩容空间。",
+      "scale": "50 万文档，768 维向量，内存预算 16GB，P99 延迟不超过 50ms，召回率不低于 0.96",
+      "focus": "索引选型的理由与内存估算，分片方案怎么切；追问扩到亿级文档且内存压到 10GB 以内时方案怎么改，精度损失如何补。",
+      "platform": ""
+    },
+    {
+      "title": "多 Agent 客服编排与配额降级",
+      "background": "用 LangGraph 编排客服 Agent，拆成澄清、检索、执行三个子图，单会话有明确的资源配额上限。",
+      "scale": "单会话 10 万 token、50 次工具调用、300 秒时长上限",
+      "focus": "子图之间 State 怎么传递，子 Agent 超时如何兜底，意图漂移怎么检测，配额耗尽后的降级路径与用户提示怎么设计。",
+      "platform": ""
+    },
+    {
+      "title": "Agent 自动模式接管外部不可信仓库",
+      "background": "Agent 以 Auto Mode 直接处理外部不可信仓库和 PR，实测可被间接提示注入打通到远程代码执行。",
+      "scale": "RCE 实测成功率 60% 到 80%",
+      "focus": "权限分级怎么划，工作目录白名单与模块导入隔离怎么落地；追问已有三层防御为何仍被间接注入绕过，你补的那一层怎么验证有效。",
+      "platform": ""
+    },
+    {
+      "title": "subagent 批量清理任务误删主目录",
+      "background": "子 Agent 承接批量清理任务，执行递归强删命令 rm -rf 时误删主目录，造成大规模数据丢失。",
+      "scale": "误删约 700GB 主目录数据",
+      "focus": "高危命令分级规则，自动批准的边界在哪；快照与回滚的 RTO 目标，审计日志需要记录哪些字段才能复盘定责。",
+      "platform": ""
+    },
+    {
+      "title": "MCP 网关多包接入的命名冲突与输出超限",
+      "background": "网关同时接入多个 MCP 包，不同包出现同名工具导致调用歧义，同时单个工具一次返回超长输出直接撑爆上下文窗口。",
+      "scale": "",
+      "focus": "包级命名空间与分隔符设计，单工具 output token 上限怎么设；超限结果做截断、摘要还是落盘后返回引用，配额与限流提示怎么给。",
+      "platform": ""
+    },
+    {
+      "title": "主力模型退役涨价后的迁移方案",
+      "background": "依赖的主力模型宣布调价并当晚下线旧 API，新版本换了 tokenizer，同样文本的 token 数明显上升，需要在成本可控前提下完成迁移。",
+      "scale": "单价从 2 美元每百万输入、10 美元每百万输出涨到 3 美元和 15 美元，涨幅 50%；同文本 token 数增加 10% 到 35%；新版单价约为旧版 3 倍",
+      "focus": "成本重估的口径怎么算才不失真，路由与 fallback 怎么配，灰度节奏和兼容层怎么设计以避免当晚断服。",
+      "platform": ""
+    }
+  ],
+  "events": [
+    {
+      "event": "Codex CLI v0.152.0 发布，支持包级 MCP server 命名、单工具 output token limit，限流横幅改为带可执行建议。",
+      "ask": "MCP 工具命名冲突和单工具输出超限，在网关层怎么统一治理；用户配额耗尽时，产品应该给出什么样的 next step 才算可执行。",
+      "platform": ""
+    },
+    {
+      "event": "Claude Code Opus 5 的 Auto Mode 被安全研究者攻破，远程代码执行成功率达到 60% 到 80%。",
+      "ask": "safety classifier、模型训练对齐、输入探针这三层防御为什么还是被绕过；你会加哪一层，怎么设计实验验证它真的拦住了间接注入。",
+      "platform": ""
+    },
+    {
+      "event": "Anthropic 的 Fable subagent 执行清理时删库，约 700GB 数据被递归删除，状态页同期记录到高错误率。",
+      "ask": "自动批准的边界该划在哪；操作分级、沙箱隔离、快照回滚三件事在你的 Agent 里具体怎么落地和演练。",
+      "platform": ""
+    },
+    {
+      "event": "Claude Code v2.1.252 修复了 Remote Control 连接降级时会卡死数分钟的问题。",
+      "ask": "远程控制和多客户端共享会话的场景，心跳、超时、降级和断线恢复怎么设计；卡死数分钟这类问题怎么在监控上先发现。",
+      "platform": ""
+    },
+    {
+      "event": "GitHub Copilot 9 月 1 日调整，弃用多款旧模型，Grok 4.6 全量放开，恢复商业版注册并启用新计费。",
+      "ask": "模型生命周期怎么管，从弃用公告到迁移完成期间的兼容层怎么搭；计费模式的变化会反过来怎么影响 Agent 的架构与调用策略。",
+      "platform": ""
+    },
+    {
+      "event": "Apple Mac mini 和 Mac Studio 因企业 AI 需求激增出现缺货。",
+      "ask": "为什么统一内存加真实桌面环境适合做 computer-use Agent 的强化学习；GPU、Mac、TPU 在训练和推理两侧应该怎么分工。",
+      "platform": ""
+    }
+  ],
+  "coding": [
+    {
+      "title": "多工具输出校验器",
+      "focus": "JSON Schema 对入参和返回做双向校验，异常按网络、业务、格式分类，提供 fallback 返回值，连续失败计数触发熔断且成功后重置计数。",
+      "difficulty": "中等",
+      "platform": ""
+    },
+    {
+      "title": "Agent 对话状态管理 FSM",
+      "focus": "状态枚举与合法转移表，core_intent 漂移检测，最大步数保护防死循环，摘要压缩的触发条件判断。",
+      "difficulty": "中等",
+      "platform": ""
+    },
+    {
+      "title": "向量索引选型决策器",
+      "focus": "规则引擎的组织方式，按向量维度乘数据量估算内存占用，在召回率、延迟、内存三者间做权衡并给出默认兜底选项。",
+      "difficulty": "中等",
+      "platform": ""
+    },
+    {
+      "title": "Agent 并发会话隔离器",
+      "focus": "per-session 锁保证同一会话内串行、不同会话并发执行，配额计量与耗尽判定，锁的释放与异常安全。",
+      "difficulty": "中等",
+      "platform": ""
+    },
+    {
+      "title": "合并区间",
+      "focus": "排序加贪心，原地合并的写法，边界相接算不算重叠要能说清并与面试官确认口径（阿里面试出现）。",
+      "difficulty": "中等",
+      "platform": ""
+    },
+    {
+      "title": "最长递增子序列",
+      "focus": "O(n 平方) 动态规划与基于二分的 O(n log n) 两版都要能写，重点是解释 tails 数组每个位置的含义（小红书面试出现）。",
+      "difficulty": "中等",
+      "platform": ""
+    },
+    {
+      "title": "最长无重复字符子串",
+      "focus": "滑动窗口配哈希表记录字符最近下标，左指针只能单向右移的边界处理，窗口收缩时机（网易面试出现）。",
+      "difficulty": "中等",
+      "platform": ""
+    }
+  ]
+}

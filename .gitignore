@@ -15,10 +15,14 @@ build-venv/
 
 # ---- 运行时生成的用户数据 ----
 sessions/
-kb/UPDATES.md
 resume.txt
 resume.meta.json
 *.log
+
+# kb/ 的三层情报（raw 原文 / compiled 编译产物 / UPDATES.md 渲染视图）是进仓库的：
+# 它们既是这个项目的知识库语料，也随安装包发给新机器。只挡掉迁移和运行时留下的备份。
+kb/UPDATES.md.bak
+kb/UPDATES.md.pre-migrate-*
 
 # ---- Python ----
 __pycache__/

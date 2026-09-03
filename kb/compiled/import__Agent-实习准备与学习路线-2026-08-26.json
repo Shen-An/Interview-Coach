@@ -1,0 +1,231 @@
+{
+  "meta": {
+    "kind": "import",
+    "source": "Agent-实习准备与学习路线-2026-08-26.md",
+    "slug": "import__Agent-实习准备与学习路线-2026-08-26",
+    "raw_file": "import__Agent-实习准备与学习路线-2026-08-26.md",
+    "raw_chars": 4362,
+    "compiled_at": "2026-08-26T21:11:00",
+    "recompiled_at": "2026-09-02T19:37:26",
+    "section_title": "2026-08-26 21:11 · 来自 Agent-实习准备与学习路线-2026-08-26.md",
+    "model": "anthropic/claude-opus-5"
+  },
+  "topic": [
+    "Codex Harness开源",
+    "网易多工具校验",
+    "美团外卖智能客服",
+    "信通院可信标准",
+    "字节研究型Agent"
+  ],
+  "questions": [
+    {
+      "q": "Agent多工具调用时如何做好输出校验防止返回无效结果？",
+      "company": "网易",
+      "frequency": "必考",
+      "answer_hint": "Schema校验用JSON Schema约束字段类型必填项取值范围；语义校验让LLM判断返回内容是否真正回答用户问题；空值与异常检测；校验失败走Fallback降级切备用工具或直接回答；失败日志记录入Badcase库。",
+      "platform": "Agent后端一面"
+    },
+    {
+      "q": "CoT思维链对Agent执行效果有哪些提升与局限？",
+      "company": "阿里",
+      "frequency": "高频",
+      "answer_hint": "提升：推理过程透明化、复杂任务可拆解、错误可定位、配合Few-shot效果增强。局限：Token消耗涨3到5倍、中间步骤幻觉会向后传播、简单任务纯属overhead、弱模型撑不起长链推理、领域迁移时思维链模板难复用。",
+      "platform": "AI应用开发一面"
+    },
+    {
+      "q": "并发场景下Agent会话怎么设计？",
+      "company": "腾讯",
+      "frequency": "高频",
+      "answer_hint": "会话隔离用Redis key按user_id加session_id；用状态机FSM追踪会话阶段；乐观锁或版本号防并发写冲突；限流与熔断保护下游；长任务异步化返回task_id轮询；空闲超时后归档进长期记忆。",
+      "platform": "后端一面"
+    },
+    {
+      "q": "用户问题连续触发多个工具时怎么避免工具调用混乱？",
+      "company": "美团",
+      "frequency": "必考",
+      "answer_hint": "构建DAG依赖图，无依赖的工具并行执行；每次调用带唯一ID并要求回传做追踪；超时熔断单工具3到5秒、总链路30秒；返回结果做schema校验；对语义重复的调用做去重。",
+      "platform": "Agent一面"
+    },
+    {
+      "q": "RAG召回结果不理想从哪些维度排查？",
+      "company": "美团",
+      "frequency": "高频",
+      "answer_hint": "索引侧看Embedding模型匹配度与索引选型IVF_PQ还是HNSW；查询侧做Query改写或HyDE；检索侧调Top-K、相似度阈值、上混合检索；数据侧看Chunk大小与重叠率；评测侧用Hit Rate、MRR、NDCG定位到底哪一环掉点。",
+      "platform": "Agent一面"
+    },
+    {
+      "q": "向量数据库索引类型及适用场景？",
+      "company": "美团",
+      "frequency": "高频",
+      "answer_hint": "Flat适合十万以下数据量、暴力检索百分百召回；IVF_PQ适合百万以上且内存受限、有精度损失；HNSW适合中等规模要求高召回低延迟、内存占用大；DiskANN适合超大规模、索引落磁盘。",
+      "platform": "Agent一面"
+    },
+    {
+      "q": "Agent Memory怎么设计，短期和长期记忆如何落地？",
+      "company": "字节",
+      "frequency": "必考",
+      "answer_hint": "四层结构：工作记忆放当前上下文；短期记忆用Redis存最近N轮加滚动摘要，生命周期为会话级；长期记忆落向量库通过RAG跨会话检索；实体记忆用图数据库维护用户画像与实体关系。",
+      "platform": "AI应用开发一面"
+    },
+    {
+      "q": "用户会话很长Prompt越来越大怎么处理？",
+      "company": "字节",
+      "frequency": "高频",
+      "answer_hint": "滑动窗口保留近期轮次；历史轮次做摘要压缩；按Token预算做token-aware截断；旧内容转入向量库做检索式回溯；上下文分层分区管理，划分系统区、工作记忆区、检索区、工具调用区各自限额。",
+      "platform": "AI应用开发一面"
+    },
+    {
+      "q": "Rerank重排序有哪些方案？",
+      "company": "字节",
+      "frequency": "高频",
+      "answer_hint": "Cross-Encoder精度高但延迟大；ColBERT轻量延迟低适合线上；LLM-as-a-Judge精度最高但成本高；规则重排按时间与来源权威度加权；LTR学习排序融合多路特征。实践中常用轻量模型粗排加LLM精排。",
+      "platform": "AI应用开发一面"
+    },
+    {
+      "q": "向量库和传统数据库怎么分工？",
+      "company": "京东",
+      "frequency": "高频",
+      "answer_hint": "向量库存Embedding负责语义近似检索走ANN；传统数据库存结构化字段负责精确过滤、事务与权限。典型链路是先向量库召回Top-K候选，再用传统库按业务字段过滤，或用元数据做预过滤缩小检索范围。",
+      "platform": "大模型应用开发一面"
+    },
+    {
+      "q": "Agent工具调用失败怎么处理？",
+      "company": "蚂蚁",
+      "frequency": "必考",
+      "answer_hint": "按错误类型分流：超时走指数退避重试；参数错误把报错结构化反馈给模型让它自纠；服务端错误熔断降级；权限错误直接终止不重试。配套结构化JSON返回、幂等key防重复写、重试次数与总超时上限。",
+      "platform": "智能应用开发一面"
+    },
+    {
+      "q": "大模型输出格式不稳定工程上怎么约束？",
+      "company": "蚂蚁",
+      "frequency": "高频",
+      "answer_hint": "JSON Schema强制约束或用结构化输出接口；Few-shot给标准示例；正则与容错解析兜底；解析失败改写Prompt重试；重试三次仍失败转人工HITL；固定文案部分用Jinja2模板填充而不交给模型生成。",
+      "platform": "智能应用开发一面"
+    },
+    {
+      "q": "研究型Agent整体架构怎么设计？",
+      "company": "字节",
+      "frequency": "必考",
+      "answer_hint": "主链路是Query到意图识别到任务拆解到子Agent分配到并行或串行执行到结果聚合到质量校验到答案生成。核心模块Planner、Worker、Critic、Memory、Tool Registry；工程上要有可回退状态机checkpoint、trace回放完整决策链、关键节点HITL审批。",
+      "platform": "Agent二面"
+    },
+    {
+      "q": "Badcase怎么定义？如何回流SFT？",
+      "company": "字节",
+      "frequency": "高频",
+      "answer_hint": "三类样本：Review拒绝的进纠错库定期SFT；用户未采纳的分析根因做针对性优化；高质量输出进正例库供Few-shot或DPO。回流链路为收集、标注、清洗、构造SFT pair、增量训练、A/B验证、灰度发布。",
+      "platform": "Agent二面"
+    },
+    {
+      "q": "外卖平台智能客服场景，RAG和Skill工作流怎么选？",
+      "company": "美团",
+      "frequency": "高频",
+      "answer_hint": "非订单类问题如优惠券规则、平台政策走RAG知识库；订单类如派单、退款、赔偿涉及多系统写操作和确定性流程，走Skill工作流；投诉类先情感安抚再建工单转人工。C端RAG与Skill混合，D端骑手以Skill为主，B端商户入驻结算走Skill。",
+      "platform": "Keeta智能客服一面"
+    },
+    {
+      "q": "OpenAI Codex Harness开源对Agent开发有什么影响？",
+      "company": "",
+      "frequency": "必考",
+      "answer_hint": "Apache-2.0协议开源大幅降低Agent Harness自研门槛；codex exec、SDK、app-server三组件可分层复用；设计哲学上iOS式嵌入引擎与安卓式一切皆插件的取舍；开源八天衍生2600多个插件仓库，纯套壳产品失去差异化空间，竞争回到场景与数据。",
+      "platform": ""
+    },
+    {
+      "q": "中国信通院《即时零售智能体可信基本要求》核心指标有哪些？",
+      "company": "",
+      "frequency": "高频",
+      "answer_hint": "任务完成度上简单任务成功率大于95%、复杂任务大于90%、接口调用成功率大于99%；配套六大安全体系包括数据安全、访问权限、运行防护、漏洞管控、服务运维、科技伦理。可延伸问这些指标在自己项目里怎么埋点度量。",
+      "platform": ""
+    },
+    {
+      "q": "智谱GLM-5.3推迟开源权重的原因及启示？",
+      "company": "",
+      "frequency": "高频",
+      "answer_hint": "配套的开源的盾审计发现2400多个缺陷、其中1097个中高危，因此推迟权重发布。启示是开源模型进入商用前必须过安全审计，Agent底层模型的安全性直接决定Agent行为安全，选型时要看审计报告而非只看榜单分数。",
+      "platform": ""
+    }
+  ],
+  "scenarios": [
+    {
+      "title": "外卖平台智能客服系统设计",
+      "background": "同时服务三类用户：C端用户咨询餐品问题、找地址、赔偿、优惠券；D端骑手反馈派单异常和长时间无单；B端商户咨询入驻、结算、活动报名。需要设计统一入口下的路由与处理链路，非订单类走RAG知识库，订单类走Skill工作流，投诉类走情感安抚加工单转人工。",
+      "scale": "日活千万级用户，三端问题类型差异大，订单类问题涉及派单、退款、赔偿等多系统写操作",
+      "focus": "RAG与Skill的路由决策依据；三类用户差异化设计；订单类业务为何必须用确定性工作流而不是知识库问答；兜底与转人工阈值怎么定",
+      "platform": "美团Keeta一面原题"
+    },
+    {
+      "title": "高准确性研究型Agent架构设计",
+      "background": "面向医疗、法律等高准确性场景的研究型Agent，需要多步推理、多源检索并生成带引用的结论，对幻觉和引用错误容忍度极低，要求全链路可审计可回溯。",
+      "scale": "幻觉率需低于1%，引用错误率低于3%，多步推理任务，需Planner、Worker、Critic、Memory、Tool Registry五模块协作",
+      "focus": "可回退状态机与checkpoint设计；trace回放还原完整决策链；人机协同审批点设在哪；Critic如何做质量校验；Badcase如何回流SFT",
+      "platform": "字节二面原题"
+    },
+    {
+      "title": "AI办公入口三强格局与桌面Agent产品设计",
+      "background": "字节豆包工作绑定飞书、腾讯WorkBuddy绑定微信AI、阿里千问绑定钉钉，三家在AI原生办公入口正面竞争。要求分析这类桌面办公Agent的产品形态与技术选型差异。",
+      "scale": "桌面端AI原生办公智能体6月总访问量6000万，3月仅2000万，三个月增长两倍",
+      "focus": "多Agent协作的产品与任务编排设计；企业上下文感知与权限隔离怎么做；办公入口场景下记忆与文档检索的取舍；桌面Agent元年这一判断的支撑与风险",
+      "platform": "行业热点"
+    }
+  ],
+  "events": [
+    {
+      "event": "Claude Code v2.1.243上线长任务自恢复，超过30分钟的会话崩溃率下降40%；JetBrains调查显示Claude Code周活首次超过Copilot，90%开发者已在用AI Coding工具。",
+      "ask": "AI Coding工具的竞争从模型能力升级转向工程体验打磨意味着什么？长任务自恢复在实现上需要哪些机制，比如checkpoint粒度、状态持久化、断点续跑时的上下文重建？",
+      "platform": ""
+    },
+    {
+      "event": "迪士尼弃用GitHub Copilot全面转向OpenAI Codex，理由是Codex在其自有代码库上的代码接受率更高。",
+      "ask": "大型企业从Copilot迁移到Codex对AI Coding市场格局意味着什么？企业做AI Coding供应商选型的核心标准该怎么定，代码接受率这个指标怎么科学度量、有哪些坑？",
+      "platform": ""
+    },
+    {
+      "event": "OpenAI Codex推出5小时滚动限额，从开放试用转向配额管理，官方口径是需求超出基础设施承载。",
+      "ask": "限额机制对AI Coding的商业模式和私有化部署诉求有什么影响？如果你的Agent产品依赖这类外部模型服务，怎么设计配额感知的调度、降级和多供应商路由？",
+      "platform": ""
+    },
+    {
+      "event": "OpenAI自研推理芯片Jalapeno首次测试跑赢GB300，功耗仅700W，与博通合作，推理专用，计划2027年扩量。",
+      "ask": "OpenAI成为继Google、Amazon后第四家自研芯片的超大规模厂商，推理ASIC化会怎样改变Agent的推理成本结构？成本大幅下降后，Agent架构上哪些当前为省token做的妥协可以放弃？",
+      "platform": ""
+    },
+    {
+      "event": "豆包工作正式上线并推出AgentKit云端沙箱，5分钟即可创建云端隔离沙箱运行DeepSeek Harness。",
+      "ask": "Coding Agent从个人Demo走向企业生产的标志是什么？企业级Agent部署需要哪些条件，沙箱隔离、权限收敛、审计日志、成本归属分别怎么落地？",
+      "platform": ""
+    },
+    {
+      "event": "Meta推出Hatch付费Agent平台，199.99美元每月，按替代人力定价而非按token计费，形态更接近SaaS。",
+      "ask": "Agent SaaS化定价的核心逻辑是什么？与传统API按量计费相比在毛利、用户预期和成本风险上各有什么优劣？按人力定价时如何控制重度用户的推理成本？",
+      "platform": ""
+    },
+    {
+      "event": "斯坦福535B参数模型Marin采用直播训练，全程公开训练过程，使用11套GB200 NVL72。",
+      "ask": "AI开放性研究与闭源商业竞争的博弈趋势怎么看？训练过程完全透明对复现性、安全审计和人才培养分别有什么价值？",
+      "platform": ""
+    },
+    {
+      "event": "Anthropic达成15亿美元版权和解，认定用于训练属于fair use，但从非法影子图书馆获取数据需要付费赔偿。",
+      "ask": "Agent开发者需要关注训练数据与知识库数据的来源合规性有哪些？RAG知识库里引入第三方内容时怎么做版权与授权管理、引用标注和溯源？",
+      "platform": ""
+    },
+    {
+      "event": "Hawkeye框架实现18.9倍GPU加速，由Agent自主编写NVIDIA与AMD硬件优化内核。",
+      "ask": "Agent能力边界从写业务代码扩展到写底层硬件优化内核意味着什么？这类任务对评测和验证环节提出了什么新要求，正确性与性能怎么自动校验？",
+      "platform": ""
+    },
+    {
+      "event": "SEC调查AI对冲基金，Situational Awareness基金在市场动荡中损失数十亿美元。",
+      "ask": "AI驱动的高杠杆投资决策的合规边界在哪？金融场景的Agent需要哪些强制的人工审批点、风控熔断和决策留痕机制？",
+      "platform": ""
+    }
+  ],
+  "coding": [
+    {
+      "title": "滑动窗口求最长无重复字符子串",
+      "focus": "双指针加哈希集合或哈希表记录字符位置，时间复杂度O(N)；关键是收缩左边界要用while而非if，正确处理abba这类重复字符回退的情况",
+      "difficulty": "中等",
+      "platform": "网易Agent后端一面"
+    }
+  ]
+}

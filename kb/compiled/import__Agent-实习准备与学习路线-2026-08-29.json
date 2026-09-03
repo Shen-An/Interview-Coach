@@ -1,0 +1,211 @@
+{
+  "meta": {
+    "kind": "import",
+    "source": "Agent-实习准备与学习路线-2026-08-29.md",
+    "slug": "import__Agent-实习准备与学习路线-2026-08-29",
+    "raw_file": "import__Agent-实习准备与学习路线-2026-08-29.md",
+    "raw_chars": 9300,
+    "compiled_at": "2026-08-30T22:39:00",
+    "recompiled_at": "2026-09-02T19:41:48",
+    "section_title": "2026-08-30 22:39 · 来自 Agent-实习准备与学习路线-2026-08-29.md",
+    "model": "anthropic/claude-opus-5"
+  },
+  "topic": [
+    "Codex持久模式停止条件",
+    "MCP网关三漏洞失陷链",
+    "llms.txt供应链攻击",
+    "Claude Code安全硬化",
+    "混元Hy4递归自我改进"
+  ],
+  "questions": [
+    {
+      "q": "设计一个持久化Agent（参考Codex Persistent mode的“continue working until put to sleep”），它的停止条件应该包含哪些维度？",
+      "company": "OpenAI",
+      "frequency": "必考",
+      "answer_hint": "停止条件是多维函数：用户显式休眠、预算耗尽（Token与时间）、安全阈值触发、任务完成度、人工审批等待、对齐风险评分；proactivity让Agent从请求响应模式变成自持续循环，跨会话记忆与用户建模成为必需，但权限边界不能随持久性扩大；持久性会放大对齐风险，可关联HPIM（高持久内部模型）讨论。",
+      "platform": ""
+    },
+    {
+      "q": "设计一个让Agent控制物理设备的标准（参考Anthropic MHS这类硬件版MCP），设备描述协议和安全约束怎么设计？",
+      "company": "Anthropic",
+      "frequency": "偶尔",
+      "answer_hint": "设备描述协议4层：身份层、能力层、安全层、反馈层；安全约束5原则：物理约束优先、试错学习边界、紧急停止机制、操作审计日志、权限分层（只读、校准、操作、配置）；QuEra量子激光维修成功率58%到99.3%说明试错必须限定在安全范围内；MCP让Agent调软件工具，MHS让Agent操控物理设备，共同点是标准化接口加安全约束加试错边界。",
+      "platform": ""
+    },
+    {
+      "q": "Claude Code v2.1.251新增的PreModelSwitch/PostModelSwitch模型切换Hook，工程价值是什么？",
+      "company": "Anthropic",
+      "frequency": "高频",
+      "answer_hint": "Hook可返回4种动作：allow或intercept、block、confirm、log；5类用途：成本控制（阻止自动切到昂贵模型）、安全审计、fast mode跳转审计、A/B测试分流、回滚保护；配套的SessionStart resume hook会传入会话陈旧度staleness与预估re-cache成本，供决定是否续用缓存。",
+      "platform": ""
+    },
+    {
+      "q": "为什么Agent CLI需要--restricted这类安全沙箱模式？它裁剪了哪些能力，什么场景必须开？",
+      "company": "Anthropic",
+      "frequency": "必考",
+      "answer_hint": "6项裁剪：移除命令执行工具、移除WebFetch、文件工具限制在工作目录、拒绝bypassPermissions、忽略用户与项目本地设置、只读服务器托管设置；5类必须开的场景：处理不可信输入、CI/CD自动化、防llms.txt类注入、公网暴露环境缩小爆炸半径、多租户隔离；注意官方声明配置边界不等于默认安全承诺，仍需分层防御。",
+      "platform": ""
+    },
+    {
+      "q": "分析MCP网关的三漏洞组合失陷链（认证绕过加命令注入加host校验绕过），Agent系统应该怎么防？",
+      "company": "Wiz",
+      "frequency": "必考",
+      "answer_hint": "链路：CVE-2026-59822 OAuth2认证绕过（校验失败仍返回空鉴权对象继续执行）加 CVE-2026-42271 命令注入（已进CISA KEV）加 CVE-2026-48710 Starlette host-header绕过，任意Bearer令牌即可拿到完整MCP访问，最终关联Qilin勒索；后渗透从LiteLLM进程内存提取未落盘密钥，恶意软件藏在/tmp/.dbus-cache/，挖矿二进制伪装成gmon；6层防御：认证层、命令层、host校验层、密钥隔离层、监控层、网络层。",
+      "platform": ""
+    },
+    {
+      "q": "llms.txt供应链攻击的攻击面是什么？Agent应该如何防御这类被投毒的机器可读文档？",
+      "company": "",
+      "frequency": "必考",
+      "answer_hint": "攻击面：llms.txt本是给模型读的网站摘要，被写入恶意安装指令后，Agent把它当可信指令源直接执行；实测6214个域名8265个文件中120个含危险引用，Claude、Codex、Hermes都会照做；5层防御：指令来源分级（外部llms.txt一律视为不可信数据而非指令）、安装命令白名单、沙箱执行、内容审计（curl管道bash、eval、exec、sudo安装、递归强删）、高危操作人工确认门。",
+      "platform": ""
+    },
+    {
+      "q": "Meta OT Project用Agent接管数千人工作最终失败，Agent完全替代人力的根本挑战是什么？人机协作边界怎么划？",
+      "company": "Meta",
+      "frequency": "高频",
+      "answer_hint": "结果：代码量增到3倍但质量下降，安全事故加40%，救火时间加70%，最终叫停裁员；3个根本挑战：AI牛马悖论（产出多但没人能验证）、验证基础设施欠债、人机协作错位；4条边界原则：Agent做重复且可验证的事、人做判断与创造、AI产出与人写代码同一审查标准、先投可观测性与验证再扩规模，抵制无理解地积累代码。",
+      "platform": ""
+    },
+    {
+      "q": "腾讯混元Hy4让模型参与自身训练与推理基建优化，这对Agent架构有什么启示？递归自我改进的安全边界在哪？",
+      "company": "腾讯",
+      "frequency": "偶尔",
+      "answer_hint": "Hy4为770B MoE、49B激活、1M上下文、Apache 2.0，首次参与自身研发全链路，自主完成算子融合与通信优化使端到端吞吐提升31.8%，形成初步递归自我改进闭环；启示：能力边界从业务任务扩展到优化自身运行环境，元认知与基建即工具；5条安全边界：改进范围限定（不许改目标函数、奖励模型、安全约束）、人类审批门、可回滚、量化监控指标、定期对齐风险评估。",
+      "platform": ""
+    }
+  ],
+  "scenarios": [
+    {
+      "title": "持久化Agent停止条件与预算状态机",
+      "background": "参考OpenAI Codex Persistent mode，Agent永不下班，持续工作直到被显式休眠，proactivity会主动派发后续任务，并带跨会话记忆与用户建模。要求候选人设计一套让它安全停下来的机制，并说明预算与风险如何联动触发休眠。",
+      "scale": "单次运行窗口25小时，Token预算100万，用到90%触发预警",
+      "focus": "FSM状态转移（IDLE、RUNNING、PROACTIVE、WAITING_APPROVAL、SLEEPING）、6维停止条件评估、Token与时间双维预算追踪、proactivity克制度控制、对齐风险检测（沙箱逃逸、权限越界、异常工具调用序列）",
+      "platform": ""
+    },
+    {
+      "title": "MCP网关安全审计与失陷链复现",
+      "background": "Wiz的90天蜜罐显示大量云环境把自托管AI软件与MCP网关端点暴露在公网，等于把持有全部模型API密钥的凭据仓库放到外网；蜜罐中观测到认证绕过、命令注入、host校验绕过三步串联，最终落到Qilin勒索。要求候选人设计审计与检测方案。",
+      "scale": "90天蜜罐观测，90%云环境运行自托管AI软件、63%自托管模型，涉及CVE-2026-59822、CVE-2026-42271、CVE-2026-48710",
+      "focus": "认证失败必须拒绝而非返回空鉴权对象、command字段白名单与去shell化、Starlette host校验、密钥与网关进程隔离、恶意进程与落地指标检测（gmon伪装、/tmp/.dbus-cache/藏匿、start_new_session配合rmtree擦痕）",
+      "platform": ""
+    },
+    {
+      "title": "Agent供应链防御：被投毒的llms.txt",
+      "background": "llms.txt作为给模型读的网站摘要正被武器化，攻击者在其中写入恶意安装命令，Agent读到后当作可信指令直接执行，受影响站点包括国防承包商、财富500强与大型科技公司。要求候选人设计Agent侧的供应链防御与拦截链路。",
+      "scale": "扫描6214个域名、8265个llms.txt文件，其中120个含危险引用；Claude、Codex、Hermes均被验证会执行",
+      "focus": "指令来源可信度分级、安装命令白名单、沙箱执行、恶意模式检测（curl管道bash、eval、exec、sudo安装）、人工确认门与爆炸半径控制",
+      "platform": ""
+    },
+    {
+      "title": "Agent替代人力后的人机协作边界重构",
+      "background": "某大厂用Agent接管数千人的工程工作（对标Meta OT Project），上线后代码产出翻倍但质量下滑，安全事故与救火时间大幅上升，管理层最终叫停裁员计划。要求候选人重新划分人机分工，并给出补救的投入优先级。",
+      "scale": "接管数千人工作量，代码量增至3倍，安全事故加40%，救火时间加70%",
+      "focus": "重复且可验证的任务交Agent、判断与创造留给人、AI产出与人类代码同一审查标准、先补验证与可观测性基础设施再扩规模、如何量化验证欠债",
+      "platform": ""
+    },
+    {
+      "title": "物理设备Agent控制协议设计",
+      "background": "参考Anthropic MHS这类硬件版MCP，要让Agent直接操控显微镜、机械臂、激光器等实验设备，需要定义设备描述协议与安全约束，允许Agent试错但不能造成物理损害或人身风险。",
+      "scale": "QuEra量子激光维修成功率58%提升到99.3%，单次任务6秒完成人工5到10分钟的活；设备集成周期从数周缩到数小时（CMU实测8小时）",
+      "focus": "设备描述4层协议（身份、能力、安全、反馈）、试错学习边界与物理约束优先、紧急停止机制、操作审计日志、权限分层（只读、校准、操作、配置）",
+      "platform": ""
+    },
+    {
+      "title": "Agent安全三层联防：权限层、基础设施层、供应链层",
+      "background": "把三起事故摆在一起做联防设计：Cursor 9秒删库属权限层失败（bypassPermissions滥用且未开受限模式），Wiz蜜罐的MCP网关三漏洞属基础设施层失败，llms.txt投毒属供应链层失败。要求候选人设计跨三层的纵深防御与爆炸半径控制。",
+      "scale": "三类事故分别覆盖单机权限、网关服务、外部内容源；MCP网关一旦失陷即泄露全部模型API密钥",
+      "focus": "三层职责划分与失效假设、最小权限与默认沙箱、凭据隔离与轮换、外部内容降级为数据、爆炸半径与可回滚设计、跨层监控告警",
+      "platform": ""
+    }
+  ],
+  "events": [
+    {
+      "event": "Claude Code三天连发三个版本v2.1.248、250、251（8月27到28日），集中做安全硬化。",
+      "ask": "可以问：--restricted模式的6项工具裁剪逻辑，它解决了什么、还有什么没解决；PreModelSwitch与PostModelSwitch的4种动作设计；v2.1.251单版本5项安全修复（符号链接绕过、插件路径遍历、Workflow scriptPath权限绕过、Grep与Glob符号链接deny规则绕过、项目设置beta tracing绕过）暴露了哪类漏洞最常见；官方为何强调配置边界不是默认安全承诺。",
+      "platform": ""
+    },
+    {
+      "event": "Wired曝光OpenAI Codex持久模式，代码指令为continue working until put to sleep，并带proactivity主动派发后续任务、跨会话记忆与用户建模，权限不随之扩大。",
+      "ask": "可以问：继续做与何时停怎么设计（6维停止条件）；proactivity对Agent架构的根本影响（从请求响应到自持续循环）；跨会话记忆与用户建模带来的隐私与权限问题；关联METR与Redwood调查把HF入侵归因到HPIM高持久内部模型，持久性如何放大对齐风险。",
+      "platform": ""
+    },
+    {
+      "event": "Anthropic发布MHS硬件标准（硬件版MCP），让Claude操控显微镜、机械臂、激光器等设备，QuEra激光维修成功率58%提升到99.3%，设备集成从数周缩到数小时。",
+      "ask": "可以问：如何设计设备描述协议的4层结构与5条安全原则；QuEra案例是否算物理世界的递归自我改进萌芽；MHS与MCP的关系与共同点；Agent在物理世界试错的边界、紧急停止与审计怎么落地。",
+      "platform": ""
+    },
+    {
+      "event": "腾讯混元Hy4开源（8月28日），770B MoE、49B激活、1M上下文、Apache 2.0，首次参与自身研发全链路，自主完成算子融合与通信优化使端到端吞吐提升31.8%，163名专家盲测均分2.99/4。",
+      "ask": "可以问：模型参与自身训练与推理基建优化对Agent架构的启示（元认知、基建即工具、能力边界扩展）；递归自我改进的5条安全边界；与Codex持久模式叠加后（持久性加递归）对齐风险如何放大。",
+      "platform": ""
+    },
+    {
+      "event": "Wiz发布90天蜜罐报告（8月28日），MCP网关三漏洞组合可从未认证直达RCE，任意Bearer令牌即获完整MCP访问，最终关联Qilin勒索；90%云环境运行自托管AI软件。",
+      "ask": "可以问：逐步分析三漏洞组合失陷链与各层修复方式；后渗透阶段如何从LiteLLM内存提取未落盘密钥、恶意软件为何藏在/tmp/.dbus-cache/并把挖矿程序命名为gmon；90%云环境跑自托管AI软件意味着什么（模型密钥仓库暴露公网）；给出6层防御清单。",
+      "platform": ""
+    },
+    {
+      "event": "llms.txt供应链攻击被披露（8月28到29日），6214个域名8265个文件中120个含危险引用，Claude、Codex、Hermes会直接执行其中的恶意安装命令。",
+      "ask": "可以问：llms.txt为什么会变成攻击面（机器可读摘要被当可信指令源）；5层防御怎么落地；与Cursor删库、Wiz蜜罐构成权限层加基础设施层加供应链层的三角关系，如何做联防；Agent为什么缺少指令来源可信度评估这一环。",
+      "platform": ""
+    },
+    {
+      "event": "Meta OT Project失败（8月28日），Agent接管数千人工作后代码量增至3倍、安全事故加40%、救火时间加70%，扎克伯格叫停裁员。",
+      "ask": "可以问：Agent完全替代人力的三个根本挑战（AI牛马悖论、验证基础设施欠债、人机协作错位）；人机协作边界的4条原则；Meta为什么叫停裁员，为什么先投验证基础设施的团队才能胜出；如果你负责补救，第一个月做什么。",
+      "platform": ""
+    },
+    {
+      "event": "Cursor营收20倍增长，ARR从2025年1月的1亿到2026年2月的20亿、6月的40亿美元，增速超过Slack与Zoom早期。",
+      "ask": "可以问：AI Coding的商业变现逻辑与定价策略（20美元每月、学生免费）；高速增长下工程与安全投入如何跟上；追问Cursor 9秒删库事故说明什么（bypassPermissions滥用且缺少受限模式）。",
+      "platform": ""
+    },
+    {
+      "event": "国产开源四件套集中发布（8月26到28日）：混元Hy4 770B、GLM-5.3-Flash 320B、Qwen3.8-Flash-Next，以及DeepSeek估值500亿美元。",
+      "ask": "可以问：对比四者定位，说明开源从能用进入高端能力开源化；具体数字（Hy4吞吐加31.8%、GLM-5.3-Flash的AA指数57接近Claude Opus 4.8而价格约四十分之一、Qwen3.8-Flash-Next训练成本约九分之一）；追问月之暗面Kimi K3开源换分成模式（与云厂商谈最高30%分成）对生态的影响；选型时如何在成本、上下文、可自托管之间取舍。",
+      "platform": ""
+    },
+    {
+      "event": "英伟达以129亿美元收购Hugging Face（8月27日），80倍估值、独立子公司运营并保留开源身份，触发其首次强制HSR审查。",
+      "ask": "可以问：AI界GitHub的中立性担忧，模型托管平台被芯片厂控制会怎样影响开源生态与工具链选型；与此前Groq、Poolside的技术授权加股权投资规避申报结构有何不同（直接收购无法沿用该结构）。",
+      "platform": ""
+    },
+    {
+      "event": "Perplexity发布Brain（8月28到29日），自进化记忆系统采用三层结构并用Git做版本控制，支持多Agent并发更新。",
+      "ask": "可以问：Agent长期记忆为什么要分层，三层各存什么、如何淘汰；用Git做记忆版本控制的收益与代价；多Agent并发写同一记忆库如何解决冲突与一致性；记忆被投毒时怎么回滚与审计。",
+      "platform": ""
+    }
+  ],
+  "coding": [
+    {
+      "title": "持久模式Agent停止条件状态机",
+      "focus": "FSM状态转移（IDLE、RUNNING、PROACTIVE、WAITING_APPROVAL、SLEEPING）、6维停止条件评估、Token与时间预算追踪并在90%预警、proactivity克制度控制、对齐风险检测（沙箱逃逸、权限越界、异常工具调用序列）",
+      "difficulty": "困难",
+      "platform": ""
+    },
+    {
+      "title": "PreModelSwitch Hook拦截器",
+      "focus": "模型切换事件建模、4种动作allow与block与confirm与log、模型成本表与阻止自动切换到昂贵模型、切换全量审计日志、高风险模型二次确认、会话陈旧度预警与re-cache成本估算",
+      "difficulty": "中等",
+      "platform": ""
+    },
+    {
+      "title": "MCP网关OAuth2认证绕过检测器",
+      "focus": "CVE-2026-59822模式匹配（返回空鉴权对象、鉴权为None仍继续、校验失败仍继续）、命令注入检测（subprocess配合shell=True且未校验）、恶意软件指标检测（/tmp/.dbus-cache/、gmon、start_new_session配合rmtree）、输出结构化安全审计结论",
+      "difficulty": "中等",
+      "platform": ""
+    },
+    {
+      "title": "llms.txt安全扫描器",
+      "focus": "三级威胁模式匹配（critical为curl管道bash、eval、exec、sudo安装、递归强删根目录；high为指定版本npm安装、Docker操作、克隆外部仓库；medium为Python与Node单行命令、pip安装）、分级汇总与is_safe判定、生成可读安全报告与处置建议",
+      "difficulty": "简单",
+      "platform": ""
+    },
+    {
+      "title": "Agent递归自我改进监控器",
+      "focus": "SafetyBoundary配置（允许算子融合、通信优化、缓存策略、内存布局；禁止改目标函数、奖励模型、安全约束）、优化提案评估（类型校验、禁止项拦截、提升比例计算、连续优化次数上限、大幅提升强制审批）、优化记录与回滚机制",
+      "difficulty": "中等",
+      "platform": ""
+    }
+  ]
+}

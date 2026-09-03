@@ -1,0 +1,191 @@
+{
+  "meta": {
+    "kind": "import",
+    "source": "Agent-实习准备与学习路线-2026-08-27.md",
+    "slug": "import__Agent-实习准备与学习路线-2026-08-27",
+    "raw_file": "import__Agent-实习准备与学习路线-2026-08-27.md",
+    "raw_chars": 2571,
+    "compiled_at": "2026-08-27T19:52:00",
+    "recompiled_at": "2026-09-02T19:38:43",
+    "section_title": "2026-08-27 19:52 · 来自 Agent-实习准备与学习路线-2026-08-27.md",
+    "model": "anthropic/claude-opus-5"
+  },
+  "topic": [
+    "美团RAG召回排查",
+    "向量索引HNSW/IVF选型",
+    "工具调用5层防御与熔断",
+    "拼多多Token化与Attention",
+    "字节AgentKit隔离沙箱"
+  ],
+  "questions": [
+    {
+      "q": "RAG 召回结果不理想时，你会从哪些维度排查？",
+      "company": "美团/字节/京东",
+      "frequency": "必考",
+      "answer_hint": "四维排查：召回链路（分块策略、Embedding 模型适配、TopK 设置）、融合策略（混合检索权重、Rerank）、数据质量（解析完整性、噪声脏页）、评估指标（HitRate@K、MRR、NDCG、Recall@K）；重点讲线上真出问题时的排查顺序与验证手段，而不是背召回率定义。",
+      "platform": ""
+    },
+    {
+      "q": "常见向量数据库索引类型有哪些，各自适用什么场景？",
+      "company": "美团/字节/小米",
+      "frequency": "高频",
+      "answer_hint": "Flat、HNSW、IVF、IVF-PQ、ScaNN、DiskANN 六种做对比，维度包括构建开销、查询延迟、召回率、内存占用；千万级以下用 HNSW 加 PQ 压缩，亿级以上用 IVF-PQ 配 DiskANN 做磁盘兜底。",
+      "platform": ""
+    },
+    {
+      "q": "Agent 工具调用出现异常（超时、参数错误、下游 5xx）怎么处理？",
+      "company": "美团/网易/字节",
+      "frequency": "必考",
+      "answer_hint": "5 层防御：预防层（标准化工具描述、参数白名单、幂等键）、重试层（指数退避最多 3 次）、降级层（工具 A 到工具 B 再到兜底话术）、熔断层（错误率超 30% 熔断 30 秒）、监控回归层（埋点告警加回归用例）。",
+      "platform": ""
+    },
+    {
+      "q": "讲一下 Token 化原理，BPE、WordPiece、SentencePiece 有什么区别？",
+      "company": "拼多多/字节/腾讯",
+      "frequency": "必考",
+      "answer_hint": "三种子词切分的合并准则不同：BPE 按共现频次合并字节对，WordPiece 按似然增益合并，SentencePiece 直接在原始字节流上训练、不依赖预分词，更适合多语言与中文；再结合词表大小对上下文占用和调用成本的影响。",
+      "platform": ""
+    },
+    {
+      "q": "解释 Attention 中 Q、K、V 的含义，以及 softmax(QK^T/√d_k)V 里缩放因子的作用。",
+      "company": "拼多多/字节/腾讯",
+      "frequency": "必考",
+      "answer_hint": "Q 是查询、K 是键、V 是值；QK^T 算相关性打分，softmax 归一化后对 V 加权求和；除以根号 d_k 是为了压住高维点积的方差，避免 softmax 饱和导致梯度消失。",
+      "platform": ""
+    },
+    {
+      "q": "什么是 Lost in the Middle 现象？长上下文场景怎么缓解？",
+      "company": "拼多多/字节/腾讯",
+      "frequency": "必考",
+      "answer_hint": "长上下文中段的信息容易被模型忽略；缓解手段是关键信息放在首尾、对中段做滑动窗口摘要压缩、把检索改成工具化按需取回，而不是一次性把文档全塞进上下文。",
+      "platform": ""
+    },
+    {
+      "q": "ReAct 循环什么时候该继续调用工具、什么时候该停止并输出答案？",
+      "company": "拼多多/字节/腾讯",
+      "frequency": "高频",
+      "answer_hint": "围绕 Thought-Action-Observation 循环讲终止条件：Observation 已能支撑答案、连续工具调用不再带来新增信息、命中最大步数或超时与 token 预算上限；再叠加验证器对结果做校验后才给终态输出。",
+      "platform": ""
+    },
+    {
+      "q": "描述一次 Agent 请求的完整链路，从用户输入到流式输出经过哪些环节？",
+      "company": "字节火山方舟/腾讯/美团",
+      "frequency": "必考",
+      "answer_hint": "用户输入、上下文组装、LLM 推理、工具执行、Observation 回写、验证器校验、流式输出；每个环节都要讲超时预算、失败回退路径和可观测埋点。",
+      "platform": ""
+    },
+    {
+      "q": "什么是 Context Engineering，它和 Prompt Engineering 的区别在哪？",
+      "company": "字节火山方舟/腾讯/美团",
+      "frequency": "高频",
+      "answer_hint": "重点是上下文预算的分配与组装：系统指令、检索片段、历史摘要、工具返回结果各占多少、按什么顺序放、超限时怎么裁剪与压缩；比单纯写提示词更强调可控的上下文装配策略。",
+      "platform": ""
+    },
+    {
+      "q": "WebSocket 和 SSE 有什么区别，Agent 流式输出为什么主流选 SSE？",
+      "company": "字节火山方舟/腾讯/美团",
+      "frequency": "必考",
+      "answer_hint": "SSE 基于 HTTP 的单向服务端推送，自带断线重连、网关与鉴权链路改造成本低，适合 token 流式下发；WebSocket 是双向全双工，适合语音、协同等双向交互，但需额外心跳与网关支持。",
+      "platform": ""
+    },
+    {
+      "q": "JWT 和 Cookie-Session 两种鉴权方案怎么选？",
+      "company": "字节火山方舟/腾讯/美团",
+      "frequency": "必考",
+      "answer_hint": "JWT 是 Header.Payload.Signature 三段式、自包含无状态，便于多服务水平扩展，但吊销困难，需短过期加 refresh token；Cookie-Session 服务端存状态、易吊销，但要共享存储；结合 Agent 长连接与多端登录场景说取舍。",
+      "platform": ""
+    },
+    {
+      "q": "召回效果怎么量化评估，各个指标分别衡量什么？",
+      "company": "美团/字节/蚂蚁",
+      "frequency": "高频",
+      "answer_hint": "Hit Rate@K 看有没有命中相关文档，MRR 看首个相关结果排名的倒数，NDCG@K 支持多等级相关性并做归一化折损，Recall@K 的分母是相关文档总数而不是全库文档数；汇报时给相对提升而非绝对值。",
+      "platform": ""
+    }
+  ],
+  "scenarios": [
+    {
+      "title": "RAG 线上召回排查场景",
+      "background": "问答系统上线后用户大量反馈答非所问，需要定位问题出在召回、排序还是文档数据环节，并给出可验证的改进方案。",
+      "scale": "百万级文档库，日均万级查询",
+      "focus": "能否从 Chunk 策略、Embedding 模型适配、混合检索权重、Rerank、文档解析质量五个维度做结构化排查，并用指标对比验证每一步假设，而不是笼统说召回率低。",
+      "platform": ""
+    },
+    {
+      "title": "Agent 工具调用路由器设计",
+      "background": "一个 Agent 需要同时接入搜索、数据库、第三方 API 三套工具，要求单个工具抖动或超时不影响整体链路可用性。",
+      "scale": "单请求平均 2 到 3 次工具调用，日调用量百万次",
+      "focus": "指数退避重试、降级链路、熔断阈值、监控指标的设计，能否画出 5 层防御的完整时序图，并讲清幂等键与超时预算怎么分配。",
+      "platform": ""
+    },
+    {
+      "title": "Agent 云端隔离沙箱场景",
+      "background": "平台允许用户上传自定义 Agent 代码并在云端执行，必须防止逃逸和互相干扰，对标字节 AgentKit 的沙箱能力。",
+      "scale": "并发千级沙箱，5 分钟内完成创建",
+      "focus": "容器隔离与内核安全边界、CPU 内存磁盘配额、出网白名单与网络沙箱、执行结果回传与审计，以及冷启动优化如何做到分钟级拉起。",
+      "platform": ""
+    }
+  ],
+  "events": [
+    {
+      "event": "迪士尼弃用 GitHub Copilot，全面转向 OpenAI Codex。",
+      "ask": "如果你是迪士尼 CTO，怎么评估 AI Coding 供应商选型？请从模型代码能力、私有代码库与数据合规、IDE 与 CI 集成成本、配额计费模型、迁移与厂商锁定风险几个维度比较 Codex 和 Copilot。",
+      "platform": ""
+    },
+    {
+      "event": "OpenAI Codex 引入 5 小时滚动使用限额。",
+      "ask": "从开放试用走向配额管理反映了什么商业化逻辑？作为企业客户你怎么应对，如何在客户端做用量预算、请求排队与配额耗尽时降级到本地小模型？",
+      "platform": ""
+    },
+    {
+      "event": "JetBrains 2026 报告显示 Claude Code 周活使用率首次反超 Copilot，90% 程序员已在用 AI Coding。",
+      "ask": "AI Coding 进入用户忠诚度阶段，你判断决定留存的核心因素是什么？如果让你负责这块，用哪些指标衡量（建议采纳率、生成代码改写率、任务完成时长）？",
+      "platform": ""
+    },
+    {
+      "event": "Meta 推出付费 Agent 平台 Hatch，定价 199.99 美元每月。",
+      "ask": "对标 Claude Max 20x 的定价，Agent 商业模式从按 Token 计费走向按替代人力计费是否成立？如果让你设计付费体系，怎么在推理成本波动下分档定价并控制亏损用户？",
+      "platform": ""
+    },
+    {
+      "event": "Anthropic 达成 15 亿美元版权和解，结论是 fair use 保护训练行为但不保护非法获取数据。",
+      "ask": "如果你们团队要自训模型，训练数据的合规边界在哪里？怎么建立数据来源审计、许可证白名单、去重与可溯源的数据治理流程？",
+      "platform": ""
+    },
+    {
+      "event": "OpenAI 自研芯片 Jalapeno 首测跑赢 GB300，功耗仅 700W。",
+      "ask": "模型公司走向芯片垂直整合，对推理单价、批处理与并发策略、Agent 部署形态（长上下文缓存、常驻 Agent）会有什么影响？你会怎么设计算力供应商的双活与容量兜底方案？",
+      "platform": ""
+    },
+    {
+      "event": "Hawkeye 框架实现 Agent 自动编写 GPU 内核代码，取得 18.9 倍加速。",
+      "ask": "Agent 能力从调用工具扩展到写硬件优化代码，你怎么看这一趋势？Reactive Compilation 的核心思想是什么？如何设计正确性校验加性能回归的闭环，防止 Agent 生成的内核算错结果？",
+      "platform": ""
+    },
+    {
+      "event": "字节正式发布豆包工作，并推出 AgentKit 支持 5 分钟创建隔离沙箱。",
+      "ask": "对标腾讯 WorkBuddy 和阿里千问办公，国产办公 Agent 的核心竞争壁垒是什么？5 分钟拉起隔离沙箱的技术难点在哪，镜像预热、快照恢复、网络与权限隔离怎么做？",
+      "platform": ""
+    }
+  ],
+  "coding": [
+    {
+      "title": "TopK（最小堆与快速选择双解法）",
+      "focus": "美团 Agent 一面真题；流式数据用容量 k 的最小堆做到 O(N log k)，批量数据用快速选择做到 O(N) 期望；追问分布式 TopK 的 Map 局部 topK 加 Reduce 堆归并，以及 TopK Frequent 用哈希计数配堆。",
+      "difficulty": "中等",
+      "platform": ""
+    },
+    {
+      "title": "工具调用异常路由器（指数退避 + 降级 + 熔断）",
+      "focus": "美团 Agent 一面追问；实现 CircuitBreaker 按错误率阈值触发熔断与半开恢复，ToolRouter 走主工具到降级工具再到兜底话术的链路；追问怎么接入 Prometheus 监控指标，以及如何 Mock 工具写单测覆盖异常分支。",
+      "difficulty": "中等",
+      "platform": ""
+    },
+    {
+      "title": "进程、线程、协程三件套对比",
+      "focus": "拼多多 Agent 一面；从调度方、创建开销、通信方式、隔离性、并行性、数量上限六个维度对比；追问单进程多线程只是并发、多进程才是并行，以及高并发 SSE 长连接为什么用协程而不用线程。",
+      "difficulty": "简单",
+      "platform": ""
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "meta": {
+    "kind": "import",
+    "source": "Agent-实习准备与学习路线-2026-08-28.md",
+    "slug": "import__Agent-实习准备与学习路线-2026-08-28",
+    "raw_file": "import__Agent-实习准备与学习路线-2026-08-28.md",
+    "raw_chars": 1937,
+    "compiled_at": "2026-08-28T22:08:00",
+    "recompiled_at": "2026-09-02T19:40:50",
+    "section_title": "2026-08-28 22:08 · 来自 Agent-实习准备与学习路线-2026-08-28.md",
+    "model": "anthropic/claude-opus-5"
+  },
+  "topic": [
+    "字节豆包Seed Agent面试",
+    "多Agent通信与子Agent兜底",
+    "Agent成本控制与模型路由",
+    "企业级Agent平台5维度",
+    "Claude Code与Codex限额"
+  ],
+  "questions": [
+    {
+      "q": "Agent的多轮对话状态如何管理？长对话中如何保证不丢失用户的核心意图？",
+      "company": "字节豆包(Seed)",
+      "frequency": "必考",
+      "answer_hint": "记忆分三层：工作记忆存当前轮上下文、摘要记忆做历史压缩、长期记忆存用户画像与偏好；防遗忘三机制：core_intent字段显式锚定并每轮回注、达到阈值触发摘要压缩、关键节点做显式状态回读校验。",
+      "platform": ""
+    },
+    {
+      "q": "多Agent协作时子Agent之间如何通信？某个子Agent超时或挂掉时怎么兜底？",
+      "company": "字节豆包(Seed)",
+      "frequency": "必考",
+      "answer_hint": "通信四种方式按部署形态选型：同进程直接调用、跨服务消息队列、共享状态存储、gRPC；兜底链路为健康检查、超时中断、降级路径（换备用Agent或退化为单Agent流程）、状态快照支持断点续跑、日志与告警上报。",
+      "platform": ""
+    },
+    {
+      "q": "Agent线上Token成本过高，你会怎么做成本控制和模型路由？",
+      "company": "字节豆包(Seed)",
+      "frequency": "必考",
+      "answer_hint": "Token侧：上下文压缩、滑动窗口、Prompt Caching复用系统提示；路由侧：任务分层，简单任务走小模型、复杂规划走大模型，必要时级联升级；再叠加语义缓存命中重复请求；最后用评测数据驱动成本与效果的取舍，避免降本掉点。",
+      "platform": ""
+    },
+    {
+      "q": "如何搭建Agent效果评测的自动化指标体系？Badcase怎么闭环？",
+      "company": "字节豆包(Seed)",
+      "frequency": "高频",
+      "answer_hint": "四层指标：任务层看端到端完成率、规划层看步骤合理性与冗余步数、工具层看调用准确率与参数正确率、生成层看回答质量与幻觉率；自动化手段包括Golden Set回归、LLM-as-Judge、规则校验、影子模式与线上A/B；Badcase按归因回流到SFT数据、Prompt迭代或工具描述修正。",
+      "platform": ""
+    }
+  ],
+  "scenarios": [
+    {
+      "title": "企业级Agent平台设计（2026大厂Agent面试5维度框架）",
+      "background": "面试官要求候选人从零设计一个企业级Agent平台，答案需覆盖五个维度：一是推理框架选型（推理引擎选择、优化与加速手段）；二是Agent架构（单Agent与多Agent编排的取舍与编排方式）；三是工具与协议（MCP、A2A、Function Calling的适用边界）；四是系统设计（高可用、成本控制、可扩展性）；五是安全与评估（沙箱隔离、权限管控、自动化评测）。",
+      "scale": "日活10万用户，并发峰值5000 QPS，工具调用延迟P99小于3秒，单用户日均Token消耗50万",
+      "focus": "考察能否从“调API”升级到“搭系统”，五个维度缺一不可；重点追问架构取舍的理由、在延迟与成本双约束下的方案权衡、工具协议选型依据、以及安全沙箱与评测闭环怎么落地。",
+      "platform": ""
+    }
+  ],
+  "events": [
+    {
+      "event": "迪士尼弃用GitHub Copilot、全面转向OpenAI Codex（8月25日）",
+      "ask": "企业选择AI Coding供应商时，除通用编码能力外还应考虑哪些维度？考点包括对自有代码库的适配度、与现有研发生态的整合、迁移成本与切换风险、ROI如何量化。",
+      "platform": ""
+    },
+    {
+      "event": "Claude Code周活首次超过GitHub Copilot，JetBrains报告显示90%开发者已使用AI Coding工具（8月25日）",
+      "ask": "AI Coding的竞争已进入哪个阶段？如何衡量开发者对某个工具的“忠诚度”？可追问留存、日活周活比、任务采纳率等指标怎么设计。",
+      "platform": ""
+    },
+    {
+      "event": "OpenAI Codex推出5小时滚动限额（8月25日）",
+      "ask": "如果公司大量员工依赖Codex，5小时滚动限额会怎样影响开发效率？你的应对方案是什么？可追问配额分级调度、多供应商冗余、本地或小模型兜底、峰值削峰。",
+      "platform": ""
+    },
+    {
+      "event": "Meta推出Hatch，月费199.99美元的付费Agent平台（8月25日）",
+      "ask": "对比Token计费与订阅制，Agent产品应该如何定价？可追问成本结构、重度用户长尾分布、超额策略与毛利如何测算。",
+      "platform": ""
+    },
+    {
+      "event": "Anthropic达成15亿美元版权和解，引发训练数据fair use边界讨论（8月26日）",
+      "ask": "你认为训练数据使用的fair use边界在哪里？作为Agent开发者你如何做合规？可追问数据来源审计、授权与许可管理、检索引用与输出过滤。",
+      "platform": ""
+    },
+    {
+      "event": "Hawkeye框架实现18.9倍GPU加速（8月26日）",
+      "ask": "Agent除了调用工具还能做哪些事？如何理解Agent的能力边界？可追问Agent参与算子优化、内核生成这类系统级任务的可行性与验证方式。",
+      "platform": ""
+    },
+    {
+      "event": "Claude Code周限额于8月31日恢复但额度下调33%（8月25日）",
+      "ask": "你的团队如何规划AI Coding工具的配额？可追问按角色分级分配、高峰期调度、用量监控与告警、超额后的降级替代方案。",
+      "platform": ""
+    },
+    {
+      "event": "智谱发布GLM-5.3并收购中科加禾（8月25日）",
+      "ask": "国产模型在Agent场景中的优势和劣势分别是什么？端侧部署会如何影响Agent架构？可追问延迟与隐私收益、端侧工具调用能力受限、端云协同的任务切分。",
+      "platform": ""
+    }
+  ],
+  "coding": [
+    {
+      "title": "带超时控制的工具调用函数（asyncio + 指数退避 + 降级）",
+      "focus": "用asyncio.wait_for实现超时控制、指数退避重试、同步与异步工具的统一兼容、失败后的降级兜底、错误分类区分可重试与不可重试；追问幂等键防止重试产生副作用、如何接入ReAct Loop、以及Prometheus监控指标上报。",
+      "difficulty": "中等",
+      "platform": "字节豆包Seed一面"
+    }
+  ]
+}

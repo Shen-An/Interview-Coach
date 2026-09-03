@@ -1,0 +1,128 @@
+{
+  "meta": {
+    "kind": "import",
+    "source": "Agent-实习准备与学习路线-2026-08-31.md",
+    "slug": "import__Agent-实习准备与学习路线-2026-08-31",
+    "raw_file": "import__Agent-实习准备与学习路线-2026-08-31.md",
+    "raw_chars": 3201,
+    "compiled_at": "2026-09-02T09:26:00",
+    "recompiled_at": "2026-09-02T19:45:47",
+    "section_title": "2026-09-02 09:26 · 来自 Agent-实习准备与学习路线-2026-08-31.md",
+    "model": "anthropic/claude-opus-5"
+  },
+  "topic": [
+    "Sonnet 5涨价迁移",
+    "Kimi API停服",
+    "MCP结果中间件",
+    "子Agent预算记账",
+    "Mac训computer-use"
+  ],
+  "questions": [
+    {
+      "q": "生产 Agent 主力模型 9/1 涨价 50%，且 tokenizer 变更使同文本 token 数增 10%-35%，你如何在两周内把账单打平？",
+      "company": "",
+      "frequency": "偶尔",
+      "answer_hint": "复合涨幅约 1.5×(1.1~1.35) ≈ 1.65~2.0 倍，先量化归因再优化：稳定前缀配合 cacheTtl 提升缓存命中、固定 prompt 从每轮传输改为缓存态、按任务难度分级路由到便宜档位，换模型是最后一步。",
+      "platform": "事件衍生（Anthropic Sonnet 5 定价变更）"
+    },
+    {
+      "q": "上游 API 明晚全平台下线、替代型号单价约 3 倍，迁移方案怎么设计？",
+      "company": "",
+      "frequency": "偶尔",
+      "answer_hint": "建模型抽象层并梳理能力矩阵差异（上下文长度、工具调用、JSON mode）；用影子流量跑固定评测集做回归；灰度与双写、成本回归、保留回滚开关，并在 deadline 前做强制切换演练。",
+      "platform": "事件衍生（Kimi 旧 API 8/31 停服）"
+    },
+    {
+      "q": "为什么要在 MCP 工具结果返回路径上加中间件，具体拦什么？",
+      "company": "",
+      "frequency": "偶尔",
+      "answer_hint": "工具结果属不可信外部输入：中间件做 PII 脱敏、超长结果裁剪或摘要、错误规范化替换、注入模式过滤、审计留痕。MCP 从“能不能连”进入“好不好管”阶段。",
+      "platform": "事件衍生（Codex CLI v0.151.0）"
+    },
+    {
+      "q": "慢启动的可选 MCP server 如何做到不阻塞首轮对话？子 Agent 消耗的 token 怎么记账？",
+      "company": "",
+      "frequency": "偶尔",
+      "answer_hint": "optional server 配置 grace_period_sec，超时降级为“暂不可用”而非整体失败，就绪后热挂载工具表；子 Agent token 归口到 root goal 预算，按层级配额下发，超额时先剪枝低优先级子任务。",
+      "platform": "事件衍生（Codex CLI grace period + 子Agent预算）"
+    },
+    {
+      "q": "训练 computer-use Agent 为什么要采购数万台 Mac 而不是继续加 GPU？",
+      "company": "",
+      "frequency": "偶尔",
+      "answer_hint": "GUI 强化学习需要真实桌面 OS 与大量并行低成本环境实例，统一内存适合“环境仿真+小模型推理”混合负载；GPU 集群仍承担主训练，本质是 workload 分工而非替代。",
+      "platform": "事件衍生（The Information 报道 OpenAI）"
+    }
+  ],
+  "scenarios": [
+    {
+      "title": "上游定价与停服双重冲击下的模型路由治理",
+      "background": "已上线的研发/客服 Agent，主力模型 9/1 起从 $2/$10 涨到 $3/$15，同时 tokenizer 更新使同文本 token 数增加 10%~35%；同期另一路旧型号当晚全平台停服，替代型号单价约旧档 3 倍。",
+      "scale": "复合涨幅 1.65~2.0 倍；优化标杆为固定 prompt 从 5.7k 压到 1k tokens（-82%）；日调用量与月账单由面试官按岗位自设。",
+      "focus": "成本归因（单价上涨 vs token 增量）、缓存生命周期与稳定前缀设计、模型抽象层与能力矩阵对齐、评测集回归、deadline 前的灰度与回滚、上游变更监控机制。",
+      "platform": ""
+    },
+    {
+      "title": "企业内 MCP 网关中间件治理",
+      "background": "内部接入多个 MCP server，部分慢启动会拖住首轮响应，部分返回含客户 PII 的原始数据，子 Agent 递归调用导致 token 消耗失控，需要设计统一网关层治理。",
+      "scale": "server 数量与 QPS 自设；可用锚点为固定工具 prompt 压缩目标 82%、慢启动 server 宽限期秒级、子 Agent 预算归口 root goal。",
+      "focus": "责任链式中间件设计、脱敏与截断策略、可选依赖的就绪状态机与降级、预算树与并发扣减、审计与可观测性。",
+      "platform": ""
+    },
+    {
+      "title": "computer-use Agent 的桌面环境训练池",
+      "background": "用数万台 Mac mini/Mac Studio 组成桌面环境池，为 GUI 操作 Agent 做强化学习采样，GPU 侧负责模型训练，需要设计环境池的调度与自愈。",
+      "scale": "环境实例数万级；单机并行 agent 实例数与样本回传带宽自设；高端 Mac 缺货导致硬件交付周期拉长，作为容量约束。",
+      "focus": "环境快照与快速重置、实例隔离与脏状态检测、失败环境自愈、采样与训练管道解耦及背压、缺货下的容量规划与弹性替代（虚拟机/云桌面）。",
+      "platform": ""
+    }
+  ],
+  "events": [
+    {
+      "event": "8/31 成为集中截止日：Claude Sonnet 5 优惠结束（9/1 起 $3/$15）、Kimi 旧 API（k2.5 与 moonshot-v1 全系）停服、GPT-5.4/5.4-mini 从 ChatGPT 登录路径的 Codex 退役而 API-key 路径仍可用。",
+      "ask": "可问：你怎么感知上游变更？有没有 model deprecation 的监控与预案？追问认证路径差异导致的“同一模型部分可用”如何在配置层表达。",
+      "platform": ""
+    },
+    {
+      "event": "OpenAI Codex CLI v0.151.0 发布：支持拦截改写 MCP 工具结果、optional server 启动宽限期、子 Agent token 计入 root 预算、沙箱修复（/cd 不再削弱限制、permission profile 跨 turn 保留）。",
+      "ask": "可问：权限 profile 为什么必须跨 turn 保留？跨 turn 丢失会被怎么利用？可继续追问中间件顺序与短路语义。",
+      "platform": ""
+    },
+    {
+      "event": "OpenAI 采购数万台 Mac 用于训练 computer-use Agent，导致高端 Mac 市场缺货。",
+      "ask": "可问：如果让你评估 GUI Agent 的训练成本结构，环境侧和训练侧各占什么？如何用录制回放降低真机需求？",
+      "platform": ""
+    },
+    {
+      "event": "字节豆包 2.2 延期发布，集中打磨编程、工具调用与 Agent 能力；Seed 团队重组为 PretrainData、HorizonRL、ProductPosttrain-Work、ProductPosttrain-Chat 四个部门。",
+      "ask": "面向字节候选人可问：预训练数据、RL、后训练分别对工具调用能力贡献什么？如果模型能力延期，产品侧如何降级排期？也可反问候选人对目标组的理解。",
+      "platform": ""
+    }
+  ],
+  "coding": [
+    {
+      "title": "MCP 工具结果中间件链（on_mcp_tool_result）",
+      "focus": "责任链与装饰器模式、PII 正则脱敏、超长结果截断加摘要、异常规范化、中间件执行顺序与短路语义。",
+      "difficulty": "中等",
+      "platform": ""
+    },
+    {
+      "title": "可选 MCP server 就绪管理器（grace period）",
+      "focus": "asyncio.wait_for 超时控制、starting/ready/degraded 状态机、工具表热更新、首轮不阻塞的降级返回。",
+      "difficulty": "中等",
+      "platform": ""
+    },
+    {
+      "title": "子 Agent 预算树记账器",
+      "focus": "树形配额分配与回收、并发原子扣减、超额剪枝策略、按 per-agent 模型单价加权计费。",
+      "difficulty": "中等",
+      "platform": ""
+    },
+    {
+      "title": "Tokenizer 变更成本回归对比器",
+      "focus": "同语料双 tokenizer 计数、p50/p95 增幅分位统计、按 prompt 模板归因、扣除缓存命中后的真实账单估算。",
+      "difficulty": "中等",
+      "platform": ""
+    }
+  ]
+}
