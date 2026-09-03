@@ -7,18 +7,20 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import time
 import uuid
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 ROOT = Path(__file__).resolve().parent.parent
 # 打包运行时由 Electron 注入：IC_RES_DIR=只读资源(kb/frontend)，IC_DATA_DIR=可写数据(.env/sessions)
@@ -44,11 +46,12 @@ kb_mgr = KBManager(RES_DIR / "kb", DATA_DIR / "kb")
 kb_mgr.seed()
 os.environ["IC_KB_DIR"] = str(DATA_DIR / "kb")
 
-from . import prompts, resume as resume_mod  # noqa: E402
+from . import prompts, resume as resume_mod, retrieval  # noqa: E402
 from .llm import LLMClient  # noqa: E402
 
 app = FastAPI(title="interview-coach")
 llm = LLMClient()
+logger = logging.getLogger("interview_coach")
 
 SESSIONS_DIR = DATA_DIR / "sessions"
 SESSIONS_DIR.mkdir(exist_ok=True)
@@ -112,6 +115,57 @@ class TurnReq(BaseModel):
     text: str
 
 
+class AskReq(BaseModel):
+    question: str
+    history: list[dict] = Field(default_factory=list)
+
+
+def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        return max(minimum, min(maximum, int(os.getenv(name, str(default)))))
+    except (TypeError, ValueError):
+        return default
+
+
+def _stream_observer(kind: str, started_at: float | None = None):
+    """创建不含用户正文的流式耗时记录器。"""
+    started = started_at or time.perf_counter()
+    timing = {
+        "request_id": uuid.uuid4().hex[:10],
+        "kind": kind,
+        "retrieval_ms": 0,
+        "llm_ms": 0,
+        "ttft_ms": None,
+        "total_ms": 0,
+        "provider": "",
+        "fallback": False,
+    }
+
+    def observe(event: str, data: dict):
+        now_ms = int((time.perf_counter() - started) * 1000)
+        if event == "provider_start":
+            timing["provider"] = data.get("provider", "")
+            timing["llm_start_ms"] = now_ms
+        elif event == "first_chunk" and timing["ttft_ms"] is None:
+            timing["ttft_ms"] = now_ms
+        elif event == "fallback":
+            timing["fallback"] = True
+        elif event == "provider_done":
+            timing["llm_ms"] = max(0, now_ms - timing.get("llm_start_ms", now_ms))
+        elif event == "provider_error" and data.get("emitted"):
+            timing["llm_ms"] = max(0, now_ms - timing.get("llm_start_ms", now_ms))
+
+    def snapshot() -> dict:
+        out = dict(timing)
+        out["total_ms"] = int((time.perf_counter() - started) * 1000)
+        if out["llm_ms"] == 0 and out.get("llm_start_ms") is not None:
+            out["llm_ms"] = max(0, out["total_ms"] - out["llm_start_ms"])
+        out.pop("llm_start_ms", None)
+        return out
+
+    return timing, observe, snapshot
+
+
 SETTINGS_KEYS = [
     "LLM_PROVIDER", "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "ANTHROPIC_BASE_URL",
     "OPENAI_API_KEY", "OPENAI_MODEL", "OPENAI_BASE_URL",
@@ -131,6 +185,10 @@ ANTHROPIC_BASE_URL={ANTHROPIC_BASE_URL}
 OPENAI_API_KEY={OPENAI_API_KEY}
 OPENAI_MODEL={OPENAI_MODEL}
 OPENAI_BASE_URL={OPENAI_BASE_URL}
+
+# --- 响应速度（可选；read 是流式相邻数据块的最大空闲时间，不是总回答时长） ---
+# IC_LLM_READ_TIMEOUT=45
+# QA_MAX_OUTPUT_TOKENS=3200
 
 # --- 语音转写（whisper 兼容接口即可；留空则复用 OPENAI_*） ---
 STT_API_KEY={STT_API_KEY}
@@ -321,6 +379,7 @@ def turn_stream(sid: str, req: TurnReq):
     """SSE 版对话：逐字下发，前端边收边念。事件三种：
     {"d": 增量} / {"done": true, "text": 清洗后的最终文本} / {"err": 错误信息}。
     最终文本可能比增量拼出来的短（泄漏截断），前端要用它覆盖气泡。"""
+    request_started = time.perf_counter()
     s = _sessions.get(sid)
     if not s:
         raise HTTPException(404, "会话不存在或已结束")
@@ -336,25 +395,134 @@ def turn_stream(sid: str, req: TurnReq):
     def sse(obj: dict) -> str:
         return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
 
+    timing, observe, snapshot = _stream_observer("interview", request_started)
+
     def gen():
         pieces = []
         try:
             for d in llm.chat_stream(system, s["messages"], max_tokens=1200,
                                      stop=LEAK_STOPS, system_tail=tail,
-                                     fast=True, cache_last=True):
+                                     fast=True, cache_last=True, on_event=observe):
                 pieces.append(d)
                 yield sse({"d": d})
         except Exception as e:
             s["messages"].pop()
-            yield sse({"err": f"LLM 调用失败：{e}"})
+            stats = snapshot()
+            logger.warning("interview stream failed request_id=%s timing=%s", stats["request_id"], stats)
+            yield sse({"err": f"LLM 调用失败：{e}", "timing": stats})
             return
         reply = _sanitize_reply("".join(pieces))
         if not reply:
             s["messages"].pop()
-            yield sse({"err": "模型这一轮把两边的话都演完了，已丢弃。换个模型或重说一次。"})
+            stats = snapshot()
+            logger.warning("interview stream empty request_id=%s timing=%s", stats["request_id"], stats)
+            yield sse({"err": "模型这一轮把两边的话都演完了，已丢弃。换个模型或重说一次。", "timing": stats})
             return
         s["messages"].append({"role": "assistant", "content": reply})
-        yield sse({"done": True, "text": reply})
+        stats = snapshot()
+        logger.info("interview stream done request_id=%s timing=%s", stats["request_id"], stats)
+        yield sse({"done": True, "text": reply, "timing": stats})
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+def _sanitize_qa_reply(reply: str) -> str:
+    """清掉偶尔混入的角色前缀或下一轮对话，不影响正常 Markdown。"""
+    cleaned = (reply or "").strip()
+    cleaned = re.sub(r"^\s*(?:assistant|面试教练)[ \t]*[:：][ \t]*", "", cleaned, flags=re.I)
+    m = re.search(r"\n[ \t]*(?:user|assistant|system|候选人|面试官)[ \t]*[:：]", cleaned, flags=re.I)
+    if m:
+        cleaned = cleaned[:m.start()]
+    return cleaned.strip()
+
+
+def _qa_sources(items: list[dict]) -> list[dict]:
+    """将检索条目的内部结构压成前端可展示的来源。"""
+    out, seen = [], set()
+    for item in items:
+        key = item.get("source") or item.get("id")
+        if key in seen:
+            continue
+        seen.add(key)
+        urls = []
+        for source_url in item.get("source_urls") or []:
+            url = str(source_url.get("url") or "").strip()
+            parsed = urlparse(url)
+            if parsed.scheme not in ("http", "https") or not parsed.netloc:
+                continue
+            urls.append({"url": url, "title": str(source_url.get("title") or "")[:200]})
+        out.append({
+            "id": item.get("id", ""),
+            "title": key,
+            "type": "题库" if item.get("space") == "bank" else "情报",
+            "date": item.get("day", ""),
+            "urls": urls,
+        })
+    return out
+
+
+@app.post("/api/qa/ask/stream")
+def qa_ask_stream(req: AskReq):
+    """独立面试问答：检索本地知识库后流式回答，不创建面试会话。"""
+    request_started = time.perf_counter()
+    ok, detail = llm.ready()
+    if not ok:
+        raise HTTPException(400, detail)
+    question = (req.question or "").strip()
+    if not question:
+        raise HTTPException(400, "问题不能为空")
+    if len(question) > 2000:
+        raise HTTPException(400, "问题太长了，请压缩到 2000 字以内")
+
+    store = retrieval.load(DATA_DIR / "kb" / "compiled", DATA_DIR / "kb")
+    items = retrieval.search_question(store, question, limit=8)
+    context = retrieval.render_qa_context(items)
+    system = prompts.build_qa_system(context)
+
+    # 问答页不创建后端 session；只接收最近几轮，防止前端上下文无限增长。
+    messages = []
+    for message in (req.history or [])[-8:]:
+        if not isinstance(message, dict):
+            continue
+        role = message.get("role")
+        content = str(message.get("content") or "").strip()
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content[:6000]})
+    messages.append({"role": "user", "content": question})
+
+    def sse(obj: dict) -> str:
+        return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
+
+    timing, observe, snapshot = _stream_observer("qa", request_started)
+    timing["retrieval_ms"] = int((time.perf_counter() - request_started) * 1000)
+
+    def gen():
+        pieces = []
+        try:
+            for d in llm.chat_stream(
+                system, messages, max_tokens=_env_int("QA_MAX_OUTPUT_TOKENS", 3200, 800, 8000),
+                fast=False, cache_last=False, on_event=observe,
+            ):
+                pieces.append(d)
+                yield sse({"d": d})
+        except Exception as e:
+            stats = snapshot()
+            logger.warning("qa stream failed request_id=%s timing=%s", stats["request_id"], stats)
+            yield sse({"err": f"LLM 调用失败：{e}", "timing": stats})
+            return
+        answer = _sanitize_qa_reply("".join(pieces))
+        if not answer:
+            stats = snapshot()
+            logger.warning("qa stream empty request_id=%s timing=%s", stats["request_id"], stats)
+            yield sse({"err": "模型没有生成有效回答，请重试一次。", "timing": stats})
+            return
+        stats = snapshot()
+        logger.info("qa stream done request_id=%s timing=%s", stats["request_id"], stats)
+        yield sse({"done": True, "text": answer, "sources": _qa_sources(items), "timing": stats})
 
     return StreamingResponse(
         gen(),

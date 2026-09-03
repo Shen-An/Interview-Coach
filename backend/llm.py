@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass
 from typing import Callable
 
@@ -109,10 +110,37 @@ class LLMClient:
             import httpx2 as hx  # 新版 anthropic/openai SDK 依赖 httpx2
         except ImportError:
             import httpx as hx
+
+        def env_float(name: str, default: float) -> float:
+            try:
+                return max(1.0, float(os.getenv(name, str(default))))
+            except (TypeError, ValueError):
+                return default
+
+        # read 是流式响应「相邻数据块之间」的最大空闲时间，不是整段回答的总时长。
+        # 默认收紧到 45 秒，避免坏掉的中转站让备用通路永远等不到；完整回答只要
+        # 持续有数据就不会被这个值打断。部署在慢网络时可通过环境变量放宽。
         return {
-            "timeout": hx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0),
-            "max_retries": 1,
+            "timeout": hx.Timeout(
+                connect=env_float("IC_LLM_CONNECT_TIMEOUT", 8.0),
+                read=env_float("IC_LLM_READ_TIMEOUT", 45.0),
+                write=env_float("IC_LLM_WRITE_TIMEOUT", 20.0),
+                pool=env_float("IC_LLM_POOL_TIMEOUT", 8.0),
+            ),
+            # SDK 内部重试会把一次失败变成两次完整等待，轮换层负责切备用，
+            # 所以这里关闭隐式重试，让兜底边界可预测。
+            "max_retries": 0,
         }
+
+    @staticmethod
+    def _notify(on_event, event: str, **data) -> None:
+        """可选的轻量观测钩子；观测失败不能影响模型输出。"""
+        if not on_event:
+            return
+        try:
+            on_event(event, data)
+        except Exception:
+            pass
 
     def _get_anthropic(self):
         if self._anthropic is None:
@@ -252,25 +280,42 @@ class LLMClient:
     # ---- streaming chat：SSE 逐字吐给前端，边收边念 ----
     def chat_stream(self, system: str, messages: list[dict], max_tokens: int = 8192,
                     stop: list[str] | None = None, system_tail: str = "",
-                    fast: bool = False, cache_last: bool = False):
+                    fast: bool = False, cache_last: bool = False, on_event=None):
         """生成器：逐段 yield 文本增量。轮换只在「还没吐出任何字」时发生——
         吐了半句再换家，候选人会听到两个面试官接力说话。
         fast / cache_last 语义同 chat()：面试轮必开——首字延迟的大头是模型
         开口前的自适应思考，其次是越滚越长的未缓存历史。"""
         errs = []
-        for p in self.chain() or [self.cfg.provider]:
+        started_at = time.perf_counter()
+        for attempt, p in enumerate(self.chain() or [self.cfg.provider]):
             fn = self._stream_anthropic if p == "anthropic" else self._stream_openai
             emitted = False
+            self._notify(on_event, "provider_start", provider=p, model=self.model_of(p), attempt=attempt + 1)
             try:
                 for piece in fn(self.model_of(p), system, messages, max_tokens,
-                                stop, system_tail, fast, cache_last):
-                    emitted = True
+                                stop, system_tail, fast, cache_last, on_event):
+                    if not emitted:
+                        emitted = True
+                        self._notify(
+                            on_event, "first_chunk", provider=p,
+                            elapsed_ms=int((time.perf_counter() - started_at) * 1000),
+                        )
                     yield piece
+                self._notify(
+                    on_event, "provider_done", provider=p,
+                    elapsed_ms=int((time.perf_counter() - started_at) * 1000),
+                )
                 return
             except Exception as e:
+                self._notify(
+                    on_event, "provider_error", provider=p,
+                    error=str(e)[:240], emitted=emitted,
+                )
                 if emitted:
                     raise
                 errs.append(f"{p}/{self.model_of(p)}：{e}")
+                if attempt + 1 < len(self.chain() or [self.cfg.provider]):
+                    self._notify(on_event, "fallback", from_provider=p)
         raise RuntimeError(
             "　→ 已自动切换备用，仍失败 → 　".join(errs) if len(errs) > 1
             else (errs[0] if errs else "没有可用的提供商")
@@ -278,7 +323,7 @@ class LLMClient:
 
     def _stream_anthropic(self, model: str, system: str, messages: list[dict], max_tokens: int,
                           stop: list[str] | None = None, system_tail: str = "",
-                          fast: bool = False, cache_last: bool = False):
+                          fast: bool = False, cache_last: bool = False, on_event=None):
         client = self._get_anthropic()
         sys_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
         if system_tail:
@@ -322,11 +367,11 @@ class LLMClient:
 
     def _stream_openai(self, model: str, system: str, messages: list[dict], max_tokens: int,
                        stop: list[str] | None = None, system_tail: str = "",
-                       fast: bool = False, cache_last: bool = False):
+                       fast: bool = False, cache_last: bool = False, on_event=None):
         # cache_last 只对 Anthropic 有意义：OpenAI 侧前缀缓存是全自动的
         if self._force_chat_completions:
             yield from self._stream_chat_completions(model, system, messages, max_tokens,
-                                                     stop, system_tail, fast)
+                                                     stop, system_tail, fast, on_event)
             return
         client = self._get_openai()
         instructions = f"{system}\n\n{system_tail}" if system_tail else system
@@ -362,11 +407,11 @@ class LLMClient:
                 raise
             self._force_chat_completions = True
             yield from self._stream_chat_completions(model, system, messages, max_tokens,
-                                                     stop, system_tail, fast)
+                                                     stop, system_tail, fast, on_event)
 
     def _stream_chat_completions(self, model: str, system: str, messages: list[dict], max_tokens: int,
                                  stop: list[str] | None = None, system_tail: str = "",
-                                 fast: bool = False):
+                                 fast: bool = False, on_event=None):
         client = self._get_openai()
         if system_tail:
             system = f"{system}\n\n{system_tail}"
@@ -392,7 +437,7 @@ class LLMClient:
             if "reasoning_effort" in s and "reasoning_effort" in extra:
                 extra.pop("reasoning_effort")
                 yield from self._stream_chat_completions(model, system, messages, max_tokens,
-                                                         stop, "", False)
+                                                         stop, system_tail, False, on_event)
                 return
             if "max_completion_tokens" not in s:
                 raise

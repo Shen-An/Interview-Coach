@@ -541,6 +541,66 @@ html.dark .pg .el-divider--horizontal, html.light .pg .el-divider--horizontal { 
 .inline-link { margin-left: 6px; }
 
 /* ============================================================
+   独立面试问答
+   ============================================================ */
+.qa-page { gap: 18px; }
+.qa-page-head { margin-bottom: 0; }
+.qa-hero { padding: 26px 28px 22px; }
+.qa-hero-copy { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px; }
+.qa-orb {
+  flex: none; width: 40px; height: 40px; display: grid; place-items: center;
+  color: var(--signal); background: var(--signal-wash); border: 1px solid rgba(36,181,196,.28);
+  border-radius: 12px; font-size: 20px;
+}
+.qa-hero h2 { margin: 0 0 6px; font-size: 1.25rem; }
+.qa-hero-copy p { margin: 0; font-size: .875rem; line-height: 1.7; }
+.qa-composer { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--ink-950); padding: 10px; }
+html.light .qa-composer { background: #fff; }
+.qa-composer .el-textarea__inner {
+  border: 0; box-shadow: none; background: transparent; padding: 6px 8px;
+  color: var(--text); font-family: var(--font-body); font-size: .975rem; line-height: 1.65;
+}
+.qa-composer .el-textarea__inner:focus { box-shadow: none; }
+.qa-composer-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 8px 0; }
+.qa-send-btn { min-width: 116px; }
+.qa-status, .generation-flag { color: var(--signal); font-size: .75rem; }
+.qa-status.waiting, .generation-flag { color: var(--text-faint); }
+.qa-suggestions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.qa-suggestion {
+  border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--text-dim);
+  padding: 6px 11px; font-family: var(--font-body); font-size: .75rem; cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.qa-suggestion:hover:not(:disabled) { color: var(--signal); border-color: var(--signal); background: var(--signal-wash); }
+.qa-suggestion:disabled { opacity: .45; cursor: not-allowed; }
+.qa-thread-card { min-height: 280px; }
+.qa-thread { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 22px; padding: 4px 2px 2px; }
+.qa-message { display: flex; flex-direction: column; gap: 9px; }
+.qa-message.user { align-items: flex-end; }
+.qa-question {
+  max-width: 82%; padding: 10px 14px; background: var(--signal-wash);
+  border: 1px solid rgba(36,181,196,.3); border-radius: 14px 4px 14px 14px;
+  color: var(--text); line-height: 1.65; white-space: pre-wrap; word-break: break-word;
+}
+.qa-answer { width: 100%; max-width: 100%; padding: 22px 24px; }
+.qa-thinking { display: flex; align-items: center; gap: 5px; color: var(--text-faint); font-size: .8125rem; padding: 18px 4px; }
+.qa-thinking i { width: 6px; height: 6px; border-radius: 50%; background: var(--signal); animation: blink 1.25s infinite; }
+.qa-thinking i:nth-child(2) { animation-delay: .18s; }
+.qa-thinking i:nth-child(3) { animation-delay: .36s; }
+.qa-thinking span { margin-left: 4px; }
+.qa-answer-tools { display: flex; justify-content: flex-end; padding: 0 14px 4px; }
+.qa-sources { margin-top: 2px; padding: 12px 14px; border-top: 1px solid var(--line-soft); background: var(--ink-950); }
+.qa-sources-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: var(--text-dim); font-size: .75rem; }
+.qa-source-list { display: flex; flex-direction: column; gap: 7px; }
+.qa-source { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; font-size: .75rem; }
+.qa-source-kind { color: var(--signal); border: 1px solid rgba(36,181,196,.3); border-radius: 4px; padding: 1px 5px; }
+.qa-source-title { color: var(--text-dim); }
+.qa-source-link { color: var(--signal); text-decoration: none; }
+.qa-source-link:hover { text-decoration: underline; }
+.qa-empty-note { padding: 0 4px; color: var(--text-faint); font-size: .75rem; }
+.qa-empty-note .mono { color: var(--signal); margin-right: 8px; }
+
+/* ============================================================
    阶段二：面试
    ============================================================ */
 .chat-panel { padding-top: 12px; }
@@ -812,6 +872,10 @@ html.light ::-webkit-scrollbar-thumb:hover { background: #9BAFB6; background-cli
   .composer-main { flex-wrap: wrap; }
   .mic { flex: 1; }
   .msg { max-width: 92%; }
+  .qa-hero { padding: 20px 16px 18px; }
+  .qa-composer-foot { align-items: flex-end; }
+  .qa-question { max-width: 94%; }
+  .qa-answer { padding: 18px 16px; }
   .dossier { padding: 20px 18px; }
 }
 

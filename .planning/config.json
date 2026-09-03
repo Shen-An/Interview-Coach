@@ -1,0 +1,11 @@
+{
+  "mode": "interactive",
+  "granularity": "phase",
+  "parallelization": false,
+  "workflow": {
+    "research_before_questions": true,
+    "discuss_mode": "discuss",
+    "text_mode": true
+  },
+  "commit_docs": false
+}

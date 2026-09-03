@@ -28,7 +28,7 @@ const app = createApp({
       page: (() => {
         const m = location.hash.match(/^#\/([a-z]+)/);
         const p = m && m[1];
-        return ["prep", "interview", "intel", "records", "report"].includes(p) ? p : "prep";
+        return ["prep", "qa", "interview", "intel", "records", "report"].includes(p) ? p : "prep";
       })(),
       showSettings: false,
       savingSettings: false,
@@ -66,6 +66,18 @@ const app = createApp({
       sessionId: null,
       messages: [],
       draft: "",
+      qaMessages: [],
+      qaDraft: "",
+      qaBusy: false,
+      qaStage: "idle", // idle / waiting / streaming / done / error
+      qaTiming: null,
+      qaSuggested: [
+        "如何解决工具调用失败和兜底？",
+        "如何降低模型幻觉？",
+        "Agent 如何设计重试和幂等？",
+        "RAG 召回不到内容怎么办？",
+        "如何设计 Agent 评测体系？",
+      ],
       interim: "",
       busy: false,
       recording: false,
@@ -93,6 +105,8 @@ const app = createApp({
       _voice: null,
       _raf: null,
       _actx: null,
+      _chatScrollTimer: null,
+      _qaScrollTimer: null,
     };
   },
 
@@ -234,7 +248,7 @@ const app = createApp({
     window.addEventListener("hashchange", () => {
       const m = location.hash.match(/^#\/([a-z]+)/);
       const p = m && m[1];
-      if (["prep", "interview", "intel", "records", "report"].includes(p)) this.page = p;
+      if (["prep", "qa", "interview", "intel", "records", "report"].includes(p)) this.page = p;
     });
     // 选中文语音（voices 异步加载）
     const pick = () => {
@@ -256,6 +270,136 @@ const app = createApp({
       this.page = p;
       const h = "#/" + p;
       if (location.hash !== h) location.hash = h;
+    },
+
+    /* ---------- 独立面试问答 ---------- */
+    qaHtml(text) {
+      return marked.parse(text || "");
+    },
+    timingLabel(timing) {
+      if (!timing || typeof timing.total_ms !== "number") return "";
+      const seconds = timing.total_ms / 1000;
+      return seconds < 10 ? `${seconds.toFixed(1)}s` : `${Math.round(seconds)}s`;
+    },
+    async askQuestion(preset) {
+      const text = (typeof preset === "string" ? preset : this.qaDraft).trim();
+      if (!text || this.qaBusy) return;
+      if (!this.cfg.ready) {
+        ElMessage.warning("请先在设置里配置对话模型");
+        return;
+      }
+      const history = this.qaMessages.map((m) => ({
+        role: m.role,
+        content: m.content || "",
+      })).filter((m) => m.content.trim());
+      this.qaMessages.push({ role: "user", content: text });
+      const holder = { role: "assistant", content: "", sources: [] };
+      this.qaMessages.push(holder);
+      this.qaDraft = "";
+      this.qaBusy = true;
+      this.qaStage = "waiting";
+      this.qaTiming = null;
+      this.scrollQaDown();
+
+      const append = (piece) => {
+        // 增量先放入非展示缓冲区，按 32ms 批量刷新，避免每个 token 都触发
+        // Vue patch、Markdown 全量解析和布局滚动。
+        holder._pending = (holder._pending || "") + piece;
+        if (this.qaStage === "waiting") this.qaStage = "streaming";
+        this.scheduleStreamRender(holder, "qaBox");
+      };
+      try {
+        const r = await fetch("/api/qa/ask/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: text, history }),
+        });
+        if (!r.ok) throw new Error((await r.json()).detail || "请求失败");
+        if (!r.body) throw new Error("这个环境不支持流式读取");
+        const reader = r.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "", finalText = null, errMsg = null;
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let i;
+          while ((i = buf.indexOf("\n\n")) >= 0) {
+            const frame = buf.slice(0, i);
+            buf = buf.slice(i + 2);
+            for (const line of frame.split("\n")) {
+              if (!line.startsWith("data: ")) continue;
+              const ev = JSON.parse(line.slice(6));
+              if (ev.d) append(ev.d);
+              else if (ev.err) { errMsg = ev.err; this.qaTiming = ev.timing || null; }
+              else if (ev.done) {
+                finalText = ev.text;
+                holder.sources = ev.sources || [];
+                this.qaTiming = ev.timing || null;
+              }
+            }
+          }
+        }
+        if (errMsg) throw new Error(errMsg);
+        if (finalText === null) throw new Error("回答流意外结束，请重试一次");
+        this.flushStreamRender(holder, "qaBox");
+        holder.content = finalText;
+        this.qaStage = "done";
+        this.scrollQaDown();
+      } catch (e) {
+        this.flushStreamRender(holder, "qaBox");
+        if (holder.content) holder.content += "\n\n> 系统提示：" + e.message;
+        else holder.content = "（系统错误：" + e.message + "）";
+        this.qaStage = "error";
+        ElMessage.error("问答失败：" + e.message);
+      } finally {
+        this.qaBusy = false;
+        this.flushStreamRender(holder, "qaBox");
+        this.scrollQaDown();
+      }
+    },
+    newQaConversation() {
+      if (!this.qaMessages.length) return;
+      this.qaMessages = [];
+      this.qaDraft = "";
+      this.qaStage = "idle";
+      this.qaTiming = null;
+    },
+    copyQaAnswer(text) {
+      this.copy(text, "回答已复制");
+    },
+    scheduleStreamRender(holder, ref) {
+      if (!holder || holder._renderTimer) return;
+      holder._renderTimer = setTimeout(() => {
+        holder._renderTimer = null;
+        if (holder._pending) {
+          holder.content += holder._pending;
+          holder._pending = "";
+        }
+        ref === "qaBox" ? this.scrollQaDown() : this.scrollDown();
+      }, 32);
+    },
+    flushStreamRender(holder, ref) {
+      if (!holder) return;
+      if (holder._renderTimer) {
+        clearTimeout(holder._renderTimer);
+        holder._renderTimer = null;
+      }
+      if (holder._pending) {
+        holder.content += holder._pending;
+        holder._pending = "";
+      }
+      ref === "qaBox" ? this.scrollQaDown() : this.scrollDown();
+    },
+    scrollQaDown() {
+      if (this._qaScrollTimer) return;
+      this._qaScrollTimer = setTimeout(() => {
+        this._qaScrollTimer = null;
+        this.$nextTick(() => {
+          const el = this.$refs.qaBox;
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      }, 0);
     },
 
     /* ---------- 主题 / 本机文件 ---------- */
@@ -556,9 +700,9 @@ const app = createApp({
           this.messages.push(holder);
           this.streaming = true;
         }
-        holder.content += d;
+        holder._pending = (holder._pending || "") + d;
         this.queueSentences(d); // 攒满一句立刻开始念
-        this.scrollDown();
+        this.scheduleStreamRender(holder, "chatBox");
       };
       try {
         const r = await fetch(`/api/session/${this.sessionId}/turn/stream`, {
@@ -590,11 +734,13 @@ const app = createApp({
         }
         if (errMsg) throw new Error(errMsg);
         // 后端清洗可能截掉了泄漏的尾巴，用最终版覆盖气泡
+        if (holder) this.flushStreamRender(holder, "chatBox");
         if (finalText !== null && holder && holder.content !== finalText) holder.content = finalText;
         this.flushSentences(); // 末尾不带句号的半句也念出来
         this.scrollDown();
       } catch (e) {
         this.stopTTS();
+        if (holder) this.flushStreamRender(holder, "chatBox");
         if (holder && holder.content) {
           holder.content += "（——已中断：" + e.message + "）";
         } else {
@@ -1114,10 +1260,14 @@ const app = createApp({
     },
 
     scrollDown() {
-      this.$nextTick(() => {
-        const el = this.$refs.chatBox;
-        if (el) el.scrollTop = el.scrollHeight;
-      });
+      if (this._chatScrollTimer) return;
+      this._chatScrollTimer = setTimeout(() => {
+        this._chatScrollTimer = null;
+        this.$nextTick(() => {
+          const el = this.$refs.chatBox;
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      }, 0);
     },
   },
 });

@@ -90,6 +90,14 @@ _ZH_STOP = frozenset(
     "就是 但是 如果 因为 所以 然后 而且 或者 之后 之前 时候 目前 现在 基本 主要 "
     "通常 比较 非常 特别 觉得 还行 清楚 不太 没做 方面 情况 相关 东西 事情 地方".split()
 )
+# 问答查询额外去掉常见疑问/关系词。条目侧仍保留原词袋，避免影响已有的整场选题
+# 排序；只在问答的“是否真的命中”判断和排序中使用，防止“量子纠缠和股价有什么关系”
+# 之类的新问题被“关系/什么”撞出随机资料。
+_QA_STOP = _ZH_STOP | frozenset(
+    "如何 为何 关系 有关 有什 么关 怎么办 解决 问题 方案 设计 介绍 以及 和 与 或".split()
+)
+_QA_STOP_CHARS = frozenset("如何什么怎么为何和与或有的了是吗呢？")
+_QA_GENERIC_HEAD = frozenset("agent llm rag tool")
 # 每类条目里参与打分的文本字段（结构化字段如 company/frequency 另算，不混进词袋）
 _TEXT_FIELDS = {
     "questions": ("q", "answer_hint"),
@@ -198,6 +206,12 @@ def _items_of(artifact: dict) -> list[dict]:
                 "head": head or terms(text),   # 去重只比题面：同一个考点隔几天被不同来源
                                                # 抽出来时，答题要点的措辞往往完全不同
                 "topic_terms": tt,      # 那天整体讲什么，当条目的标签用，不用改 schema
+                "source": str(meta.get("source") or meta.get("section_title") or "日更情报"),
+                "source_urls": [
+                    {"url": str(src.get("url") or ""), "title": str(src.get("title") or "")}
+                    for src in (meta.get("sources") or [])
+                    if isinstance(src, dict) and src.get("url")
+                ],
             })
     return out
 
@@ -233,6 +247,8 @@ def _bank_items(pages: list[dict]) -> list[dict]:
                 "head": terms(m.group(0)) if m else terms(text),
                 "topic_terms": terms(crumb),   # 面包屑就是这条的标签，跟情报的当日主题同位
                 "page": e["page"], "section": e["section"], "sub": e["sub"],
+                "source": e["page"],
+                "source_urls": [],
             })
     return out
 
@@ -372,6 +388,61 @@ def score(item: dict, q_terms: set, store: dict, *, aliases=(), level="应届校
     if item["layer"] and layer_fit:
         s += W_LAYER * layer_fit.get(item["layer"], 0.5)
     return s
+
+
+def search_question(store: dict, question: str, limit: int = 8) -> list[dict]:
+    """面试问答的通用检索。
+
+    和 select() 的整场选题不同，这里只根据用户当前问题排序，不使用轮次、
+    公司风格或手撕难度配额。题库与日更情报仍然共用同一套词项和去重逻辑。
+    没有字面命中时返回空列表，让上层明确告诉模型“没有命中本地资料”，
+    而不是把一条无关素材硬塞进上下文。
+    """
+    raw_terms = terms(question)
+    q_terms = {
+        term for term in query_terms(question)
+        if term not in _QA_STOP
+        and term not in _ASCII_STOP
+        and not (len(term) == 2 and any(ch in _QA_STOP_CHARS for ch in term))
+    }
+    # “Agent” 的同义扩展会产生“智能/能体”两个高频中文二元词；英文问题
+    # 已经有 agent 这个稳定 token，不要再让这两个泛词把行业新闻排到前面。
+    if "agent" in raw_terms and "智能体" not in question:
+        q_terms -= terms("智能体")
+    if not q_terms or not store.get("items"):
+        return []
+
+    ranked = []
+    for item in store["items"]:
+        direct_hits = item.get("terms", set()) & q_terms
+        head_hits = item.get("head", set()) & q_terms
+        topical_hits = item.get("topic_terms", set()) & q_terms
+        # score() 含有频率和新鲜度的基础分；问答检索不能让“没有命中”
+        # 的条目靠这些基础分进入上下文，否则用户问一个新问题时会收到随机旧素材。
+        # 正文里偶然出现一个词不算相关命中：例如“价格”可能出现在某条行业
+        # 情报里，但不代表它能回答股票问题。标题命中可单独成立，但只有泛化的
+        # “Agent/RAG”标题词不够；否则至少要有两个查询词命中正文/主题。
+        strong_head_hits = head_hits - _QA_GENERIC_HEAD
+        if not (strong_head_hits or len(direct_hits) >= 2 or len(topical_hits) >= 2):
+            continue
+        direct = len(head_hits)
+        topical = len(topical_hits)
+        value = score(item, q_terms, store) + direct * 0.35 + topical * 0.2
+        ranked.append((value, item))
+    ranked.sort(key=lambda pair: (-pair[0], pair[1]["id"]))
+    return [item for _value, item in _take(ranked, max(1, min(limit, 12)))]
+
+
+def render_qa_context(items: list[dict]) -> str:
+    """把问答命中的条目渲染成仅供模型参考的上下文。"""
+    if not items:
+        return "（本次没有命中本地题库或情报库。可以给出通用技术回答，但不要伪造本地来源、公司案例或具体数据。）"
+    lines = []
+    for item in items:
+        source = item.get("source") or ("题库" if item.get("space") == "bank" else "日更情报")
+        date_mark = f"｜{item['day']}" if item.get("day") else ""
+        lines.append(f"- [{item.get('kind', 'question')}] {item.get('line', '').strip()}（来源：{source}{date_mark}）")
+    return "\n".join(lines)
 
 
 def _too_close(a: set, b: set) -> bool:

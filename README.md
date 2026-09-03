@@ -34,6 +34,19 @@ OPENAI_BASE_URL=                # OpenAI 走第三方网关/中转站时填（�
 
 中转站兼容说明：OpenAI 通路优先用 Responses API，网关只有 chat/completions 时自动降级（联网搜索的知识库更新除外，它需要官方或支持 /v1/responses 的网关）。
 
+### 独立面试问答
+
+侧边栏的「面试问答」适合随时查漏补缺，不需要先创建一场模拟面试。输入例如“如何解决工具调用失败和兜底？”或“如何降低模型幻觉？”，应用会：
+
+1. 直接检索本地题库与日更情报，避免把整份知识库塞给模型；
+2. 通过 SSE 流式展示回答，先给结论，再补充架构、工程落地、常见坑和风险边界；
+3. 展示本次使用的题库/情报来源；
+4. 保留最近几轮上下文，支持继续追问；
+5. 前端按约 32ms 批量刷新流式文本，避免长回答时逐 token 触发布局抖动；后端在完成事件中附带 `ttft_ms`、`total_ms`、提供商和 fallback 状态，便于判断慢在首字还是生成过程。
+6. 不创建模拟面试 session，也不会影响正在进行的模拟面试。
+
+回答会明确区分本地资料和通用技术补充；没有命中本地资料时不会伪造题目、公司案例、日期、指标或来源。问答接口为 `POST /api/qa/ask/stream`，请求体包含 `question` 和可选的 `history`。流式协议保持向后兼容：`d` 为增量、`done` 为最终文本，`err` 为错误；`done.timing` 是可选性能诊断字段。
+
 知识库「每日更新」的联网搜索限定在中文平台（知乎、牛客网、小红书、V2EX、掘金、CSDN、微信公众号、量子位等），域名白名单在 `backend/kb.py` 的 `SEARCH_ALLOWED_DOMAINS`；国外站点的清单留在同文件的 `SEARCH_DOMAINS_INTL` 里，想开就并进去。
 
 **语音 key 怎么弄**（转写/合成都是 OpenAI 兼容接口，四选一即可）：
@@ -121,7 +134,7 @@ interview-coach/
 ├── backend/          FastAPI（app.py 路由 / llm.py 双提供商适配 / prompts.py 提示词 / resume.py 简历解析
 │                     kb.py 情报三层流水线 / schema.py 零依赖 JSON Schema 校验
 │                     wiki.py 页面切条目 / retrieval.py 题库+情报同池检索）
-├── frontend/         Vue3 SPA（侧边导航：工作台/面试/情报库/记录）+ Web Speech API（vendor/ 内含 vue / element-plus / marked）
+├── frontend/         Vue3 SPA（侧边导航：工作台/面试问答/模拟面试/情报库/记录）+ Web Speech API（vendor/ 内含 vue / element-plus / marked）
 ├── kb/               这个项目的 wiki。人格卡 / 题库 / 评分细则是人写的页面（可自行编辑增补），以及增量情报三层：
 │   ├── raw/          原文（导入的日更文档 / 检索笔记），事实来源
 │   ├── compiled/     LLM 编译产物 JSON，过 schema 才落盘
@@ -146,6 +159,7 @@ interview-coach/
 
 - **InterviewCoach Setup x.y.z.exe** —— NSIS 安装包（最新版在 GitHub Releases 下载），双击安装，桌面快捷方式「Interview Coach」
 - 所有配置在应用内「设置」里填，保存即生效；`.env`、面试记录、知识库、后端日志可从「设置」弹窗底部或托盘右键菜单直达
+- 响应速度可通过 `.env` 调整：`IC_LLM_READ_TIMEOUT` 默认 45 秒（流式相邻数据块空闲上限），`QA_MAX_OUTPUT_TOKENS` 默认 3200；不会限制持续输出的完整回答
 - 关闭窗口 = 收进系统托盘（右键托盘图标「退出」才真正退出）；右上角 ☀/🌙 切换日间/夜间主题
 - 后端端口每次启动动态分配，不会再和其它程序抢端口；异常时看 `%APPDATA%\interview-coach\backend.log`
 
