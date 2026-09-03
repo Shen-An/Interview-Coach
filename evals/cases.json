@@ -1,0 +1,314 @@
+{
+  "note": "手写评测集：每条 case 是「一份简历 + 一场设定」，expect 列的是任何面试官看了这份简历都会认为该出现在弹药库里的考点，forbid 是明显不该出现的。期望按语料里真实存在的条目写（题面子串命中即算），不是照着算法的输出反写。space 指定这条期望该由哪一层满足：intel = 编译出来的面经情报，bank = 题库页面切出来的条目，不写则两层都算。turns 是轮内追加：候选人说一句话，看动态尾块给什么（n 是期望条数，用来验证没信号时不硬凑）。运行：python evals/run.py",
+  "cases": [
+    {
+      "id": "rag-recall",
+      "why": "简历核心是向量召回不准 + 加了 rerank，一面必须问召回排查、索引选型、rerank 方案、召回指标；题库侧该出 Rerank/TopK 那条和召回率手撕，八股兜底该给 MySQL",
+      "round": "一面", "style": "美团", "level": "应届校招",
+      "resume": "李明，2027 届硕士。项目一：企业知识库问答系统，用 FAISS + bge-m3 做向量召回，文档 80 万条，上线后发现召回不准、答非所问，后来加了 rerank 重排，Top5 命中率从 61% 提到 84%。项目二：课程实验，用 LangChain 搭了个文档问答 demo。技能：Python、FastAPI、Docker、向量数据库。",
+      "expect": [
+        {"kind": "questions", "all": ["召回", "排查"]},
+        {"kind": "questions", "all": ["向量", "索引"]},
+        {"kind": "questions", "all": ["rerank"]},
+        {"kind": "questions", "all": ["召回", "量化"]},
+        {"kind": "scenarios", "all": ["RAG"]},
+        {"kind": "coding", "all": ["向量索引选型"]},
+        {"space": "bank", "kind": "questions", "all": ["Rerank", "TopK"]},
+        {"space": "bank", "kind": "coding", "all": ["RAG 召回率"]},
+        {"space": "bank", "kind": "questions", "all": ["MySQL", "索引失效"]}
+      ],
+      "forbid": [],
+      "turns": [
+        {"say": "我觉得还行吧，就那样", "n": 0},
+        {"say": "文档我是按固定 500 字切的，重叠给了 50", "want": ["chunk"]}
+      ]
+    },
+    {
+      "id": "tool-call-fault",
+      "why": "简历写了工具调用超时和重试，一面必问异常分流、熔断降级，手撕该给退避/熔断那两道",
+      "round": "一面", "style": "美团", "level": "应届校招",
+      "resume": "王芳，2027 届本科。项目：外卖场景客服 Agent，接了 12 个内部工具（订单查询、退款、优惠券），线上经常出现工具超时和参数错误导致对话中断，我做了重试和降级兜底，把失败率从 7% 压到 1.2%。技能：Python、asyncio、Redis。",
+      "expect": [
+        {"kind": "questions", "all": ["工具调用", "异常"]},
+        {"kind": "questions", "all": ["工具调用失败"]},
+        {"kind": "coding", "all": ["退避"]},
+        {"kind": "scenarios", "all": ["工具调用路由器"]},
+        {"space": "bank", "kind": "coding", "all": ["熔断"]},
+        {"space": "bank", "kind": "questions", "layer": "3", "all": ["降级", "三级容灾"]}
+      ],
+      "forbid": [],
+      "turns": [
+        {"say": "工具超时我就直接重试三次，没做别的", "want": ["熔断"]}
+      ]
+    },
+    {
+      "id": "multi-agent",
+      "why": "多 Agent 编排 + 子图传数据，该出通信与子 Agent 兜底、LangGraph 子图、预算记账",
+      "round": "一面", "style": "字节", "level": "应届校招",
+      "resume": "陈涛，2027 届硕士。项目：多 Agent 研报生成系统，LangGraph 编排检索、分析、写作三个子图，子 Agent 偶发超时会把整条链拖死，加了超时兜底和结果缓存。日均跑 2000 份报告。技能：Python、LangGraph、Celery。",
+      "expect": [
+        {"kind": "questions", "all": ["兜底"]},
+        {"kind": "questions", "all": ["LangGraph"]},
+        {"kind": "questions", "all": ["通信"]},
+        {"kind": "coding", "all": ["预算树"]},
+        {"kind": "scenarios", "all": ["多 Agent"]},
+        {"space": "bank", "kind": "questions", "layer": "2", "all": ["Supervisor", "Swarm"]},
+        {"space": "bank", "kind": "questions", "layer": "3", "all": ["死循环", "三层防御"]}
+      ],
+      "forbid": []
+    },
+    {
+      "id": "memory-longctx",
+      "why": "长对话记忆与上下文压缩，该出长短期记忆、核心意图不丢、Prompt 膨胀、Lost in the Middle",
+      "round": "一面", "style": "字节", "level": "应届校招",
+      "resume": "赵磊，2027 届硕士。项目：陪练类对话 Agent，单会话平均 60 轮，Prompt 越拼越长导致成本和延迟都上去了，我做了摘要压缩和长期记忆存储（向量库 + 结构化画像），并处理了长上下文中间信息被忽略的问题。技能：Python、Redis、pgvector。",
+      "expect": [
+        {"kind": "questions", "all": ["长短期记忆"]},
+        {"kind": "questions", "all": ["核心意图"]},
+        {"kind": "questions", "all": ["Lost in the Middle"]},
+        {"kind": "questions", "all": ["Prompt越来越大"]},
+        {"kind": "questions", "all": ["Context Engineering"]},
+        {"space": "bank", "kind": "questions", "layer": "2", "all": ["记忆污染"]},
+        {"space": "bank", "kind": "coding", "all": ["Mem0"]}
+      ],
+      "forbid": [],
+      "turns": [
+        {"say": "我们召回用的是 HNSW 索引，参数基本没调过", "want": ["HNSW"]}
+      ]
+    },
+    {
+      "id": "cost-routing",
+      "why": "成本与模型路由是这份简历的主线，二面该出成本控制、路由网关场景、模型涨价迁移",
+      "round": "二面", "style": "字节", "level": "社招1-3年",
+      "resume": "刘洋，2 年经验。负责公司内部 Coding Agent 平台的模型网关：按任务难度做模型路由（简单任务走小模型、复杂任务走大模型），叠加缓存和上下文裁剪，月度 Token 成本从 12 万降到 4.6 万。也做过多供应商切换的容灾。技能：Go、Python、OpenRouter、Prometheus。",
+      "expect": [
+        {"kind": "questions", "all": ["成本控制", "模型路由"]},
+        {"kind": "questions", "all": ["迁移"]},
+        {"kind": "scenarios", "all": ["成本路由网关"]},
+        {"kind": "events", "all": ["限额"]},
+        {"space": "bank", "kind": "questions", "layer": "3", "all": ["模型路由"]},
+        {"space": "bank", "kind": "questions", "layer": "3", "all": ["DeepSeek V4", "涨价"]}
+      ],
+      "forbid": []
+    },
+    {
+      "id": "mcp-gateway",
+      "why": "自研 MCP 网关，二面该出中间件拦什么、网关漏洞失陷链、中间件链手撕、网关治理场景",
+      "round": "二面", "style": "腾讯", "level": "社招1-3年",
+      "resume": "孙宇，3 年经验。负责公司统一 MCP 网关：接入 23 个内部 MCP server，做了 OAuth2 鉴权、工具白名单、调用审计。上半年排查过一次工具返回内容超长把上下文顶爆的事故。技能：Go、Python、Envoy、OAuth2。",
+      "expect": [
+        {"kind": "questions", "all": ["MCP", "中间件"]},
+        {"kind": "questions", "all": ["MCP", "网关", "漏洞"]},
+        {"kind": "coding", "all": ["中间件链"]},
+        {"kind": "scenarios", "all": ["MCP", "网关"]},
+        {"kind": "events", "all": ["MCP", "网关"]},
+        {"space": "bank", "kind": "questions", "layer": "3", "all": ["MCP Server 安全"]},
+        {"space": "bank", "kind": "coding", "all": ["生产级 MCP Server"]}
+      ],
+      "forbid": []
+    },
+    {
+      "id": "eval-system",
+      "why": "简历主线是评测体系与 badcase 闭环，二面该出指标体系、Badcase 回流、效果量化",
+      "round": "二面", "style": "阿里蚂蚁", "level": "社招1-3年",
+      "resume": "周琳，2 年经验。做 Agent 质量：搭了自动化评测流水线（离线集 1200 条 + 线上抽样），定义了任务完成率、工具调用准确率、越界率三个核心指标，badcase 每周回流到 SFT 数据集。上季度把任务完成率从 78% 提到 89%。技能：Python、Airflow、标注平台。",
+      "expect": [
+        {"kind": "questions", "all": ["评测", "指标体系"]},
+        {"kind": "questions", "all": ["Badcase"]},
+        {"kind": "questions", "all": ["量化"]},
+        {"space": "bank", "kind": "questions", "layer": "3", "all": ["离线评测", "评测集"]},
+        {"space": "bank", "kind": "questions", "layer": "3", "all": ["Badcase"]}
+      ],
+      "forbid": []
+    },
+    {
+      "id": "sandbox-security",
+      "why": "沙箱与权限是主线，二面该出沙箱四层防御、隔离沙箱场景、权限模型；这个级别不该拿简单题占手撕位",
+      "round": "二面", "style": "字节", "level": "社招3年+",
+      "resume": "吴健，5 年经验。负责 Agent 执行环境安全：容器化沙箱 + seccomp 白名单 + 出网代理审计，支撑内部 300+ Agent 任务并发执行；做过一次沙箱逃逸的复盘与加固，也设计了工具权限的最小授权模型。技能：Go、Linux、gVisor、K8s。",
+      "expect": [
+        {"kind": "questions", "all": ["沙箱", "防御"]},
+        {"kind": "questions", "all": ["权限模型"]},
+        {"kind": "scenarios", "all": ["沙箱"]},
+        {"space": "bank", "kind": "questions", "layer": "3", "all": ["沙箱", "逃逸"]},
+        {"space": "bank", "kind": "questions", "layer": "3", "all": ["最小权限"]}
+      ],
+      "forbid": [
+        {"kind": "coding", "all": ["（简单）"]},
+        {"space": "bank", "kind": "questions", "layer": "1", "all": ["√d_k"]}
+      ]
+    },
+    {
+      "id": "intern-basic",
+      "why": "在校实习、只有课程项目，手撕该降到简单/中等，不该甩困难题；也验证配额被填满",
+      "round": "一面", "style": "字节", "level": "在校实习",
+      "resume": "钱程，大三在读，暑期实习申请。课程项目：用 Python 写过一个爬虫加数据分析的小工具；学校比赛做过一个基于 OpenAI API 的问答机器人，调用了 embedding 接口。刷了 300 道力扣。无实习经历。",
+      "expect": [
+        {"kind": "coding", "all": ["（简单）"]},
+        {"kind": "any", "day": "2026-09-01"},
+        {"space": "bank", "kind": "questions", "layer": "1", "all": ["Agent", "Workflow", "区别"]}
+      ],
+      "forbid": [
+        {"kind": "coding", "all": ["（困难）"]}
+      ]
+    },
+    {
+      "id": "senior-platform",
+      "why": "社招 3 年+ 做平台，二面该出平台化能力模型、企业级平台设计场景",
+      "round": "二面", "style": "阿里蚂蚁", "level": "社招3年+",
+      "resume": "郑伟，6 年经验，现负责集团 Agent 平台：多租户隔离、工具市场、编排引擎、可观测，接入业务方 40+，日调用 300 万次。带 5 人小组，主导过一次从单体编排到子图编排的架构升级。技能：Java、Go、K8s、Kafka。",
+      "expect": [
+        {"kind": "questions", "all": ["平台化"]},
+        {"kind": "scenarios", "all": ["企业级Agent平台"]},
+        {"space": "bank", "kind": "questions", "layer": "3", "all": ["可观测性", "告警阈值"]},
+        {"space": "bank", "kind": "questions", "layer": "2", "all": ["LangFuse"]}
+      ],
+      "forbid": [
+        {"kind": "coding", "all": ["（简单）"]},
+        {"space": "bank", "kind": "questions", "layer": "1", "all": ["LoRA"]}
+      ]
+    },
+    {
+      "id": "streaming-sse",
+      "why": "流式输出是简历主线，一面该出 SSE 与 WebSocket 之争、请求完整链路",
+      "round": "一面", "style": "腾讯", "level": "应届校招",
+      "resume": "冯雪，2027 届本科。项目：AI 助手 Web 端，前后端流式对话，用 SSE 逐字下发，处理过断线重连和首字延迟优化（P95 从 2.1s 降到 900ms）。技能：TypeScript、Vue、FastAPI、SSE。",
+      "expect": [
+        {"kind": "questions", "all": ["WebSocket"]},
+        {"kind": "questions", "all": ["完整链路"]},
+        {"space": "bank", "kind": "questions", "layer": "1", "all": ["SSE", "WebSocket"]},
+        {"space": "bank", "kind": "coding", "all": ["LRU"]}
+      ],
+      "forbid": []
+    },
+    {
+      "id": "java-backend-switch",
+      "why": "Java 后端转 AI，一面八股该落在 MySQL/JVM/高并发这三块他真写了的地方",
+      "round": "一面", "style": "京东", "level": "社招1-3年",
+      "resume": "韩磊，2 年 Java 后端，想转 AI Agent 方向。负责订单服务，QPS 峰值 8000，做过 JVM 调优和线上故障定位（一次 OOM、一次线程池打满），熟悉 MySQL 索引与事务、Redis 缓存一致性。业余用 LangChain 写过内部问答机器人。",
+      "expect": [
+        {"kind": "questions", "all": ["MVCC"]},
+        {"kind": "questions", "all": ["OOM"]},
+        {"kind": "questions", "all": ["高并发", "会话"]},
+        {"space": "bank", "kind": "questions", "all": ["Java", "线程池"]},
+        {"space": "bank", "kind": "questions", "all": ["Redis", "缓存穿透"]}
+      ],
+      "forbid": [],
+      "turns": [
+        {"say": "Transformer 那块我只知道 QKV，为什么除以根号 dk 没深究过", "want": ["√d_k"]}
+      ]
+    },
+    {
+      "id": "react-loop",
+      "why": "手写 ReAct 循环 + JSON 不合法，一面该出 ReAct 终止条件、tool call 容错、输出格式约束、校验器手撕",
+      "round": "一面", "style": "字节", "level": "应届校招",
+      "resume": "许诺，2027 届硕士。项目：不用框架手写了一个 ReAct Agent，自己定义 thought/action/observation 格式，踩过模型返回 JSON 不合法、参数名写错、死循环停不下来这些坑，最后加了格式校验和最大步数限制。技能：Python、Pydantic。",
+      "expect": [
+        {"kind": "questions", "all": ["ReAct"]},
+        {"kind": "questions", "all": ["格式不合法"]},
+        {"kind": "questions", "all": ["输出格式不稳定"]},
+        {"kind": "coding", "all": ["输出校验器"]},
+        {"space": "bank", "kind": "coding", "all": ["ReAct 完整循环"]},
+        {"space": "bank", "kind": "questions", "layer": "3", "all": ["tool_response"]}
+      ],
+      "forbid": []
+    },
+    {
+      "id": "computer-use",
+      "why": "桌面自动化方向，二面该出 computer-use 训练取舍、桌面环境场景、采购 Mac 那条新闻",
+      "round": "二面", "style": "字节", "level": "社招1-3年",
+      "resume": "叶帆，3 年经验。做 computer-use 方向：让 Agent 操作 Windows 桌面完成报表填写，截图 + 无障碍树混合定位，成功率 71%；维护了一个 200 台虚拟机的录制回放环境。技能：Python、Playwright、WinAppDriver。",
+      "expect": [
+        {"kind": "questions", "all": ["computer-use"]},
+        {"kind": "scenarios", "all": ["computer-use"]},
+        {"kind": "events", "all": ["Mac"]},
+        {"space": "bank", "kind": "questions", "layer": "2", "all": ["余弦相似度"]}
+      ],
+      "forbid": []
+    },
+    {
+      "id": "coding-agent-platform",
+      "why": "内部 Coding Agent 接自有系统，二面该出 Codex Harness 那组题和 Coding Agent 经济性",
+      "round": "二面", "style": "字节", "level": "社招3年+",
+      "resume": "邵岩，5 年经验。把开源 Coding Agent 接进公司自研代码平台：自研 harness 做可重复环境、自动打分、日志采集，覆盖 60% 的小需求；推动 Agent 改的代码走灰度和自动回滚。技能：Go、Python、Bazel、CI/CD。",
+      "expect": [
+        {"kind": "questions", "all": ["Codex Harness"]},
+        {"kind": "questions", "all": ["经济性"]},
+        {"kind": "questions", "all": ["灰度"]},
+        {"kind": "scenarios", "all": ["Coding Agent"]},
+        {"space": "bank", "kind": "questions", "layer": "2", "all": ["单 Agent 还是多 Agent"]},
+        {"space": "bank", "kind": "questions", "all": ["Codex Harness"]}
+      ],
+      "forbid": [
+        {"space": "bank", "kind": "questions", "layer": "1", "all": ["GQA"]}
+      ]
+    },
+    {
+      "id": "vector-shard",
+      "why": "海量向量分片扩容，二面该出分片策略、HNSW/IVF 边界、索引选型扩容场景",
+      "round": "二面", "style": "美团", "level": "社招3年+",
+      "resume": "梁静，4 年经验。负责搜索召回：向量库 5.2 亿条，做过分片与冷热分层，索引从 IVF-PQ 换到 HNSW 后 P99 延迟从 180ms 降到 45ms，内存涨了 2.3 倍，做了容量评估和扩容预案。技能：C++、Python、Milvus、Faiss。",
+      "expect": [
+        {"kind": "questions", "all": ["分片"]},
+        {"kind": "questions", "all": ["HNSW"]},
+        {"kind": "scenarios", "all": ["扩容"]},
+        {"space": "bank", "kind": "questions", "layer": "2", "all": ["增量索引"]},
+        {"space": "bank", "kind": "questions", "layer": "2", "all": ["BM25"]}
+      ],
+      "forbid": [
+        {"space": "bank", "kind": "questions", "layer": "1", "all": ["√d_k"]}
+      ]
+    },
+    {
+      "id": "transformer-basics",
+      "why": "简历写了自己实现 Transformer，一面八股该落到 Attention 的 QKV 和分词原理上",
+      "round": "一面", "style": "阿里蚂蚁", "level": "应届校招",
+      "resume": "薛琪，2027 届硕士，NLP 方向。课程作业里从零实现过一个小 Transformer（多头注意力、位置编码），做过中文分词与词表构建实验，微调过 Qwen-1.8B 做意图分类，F1 0.91。技能：PyTorch、Transformers、Python。",
+      "expect": [
+        {"kind": "questions", "all": ["Attention"]},
+        {"kind": "questions", "all": ["BPE"]},
+        {"space": "bank", "kind": "questions", "layer": "1", "all": ["√d_k"]},
+        {"space": "bank", "kind": "questions", "layer": "1", "all": ["GQA", "KV-Cache"]}
+      ],
+      "forbid": []
+    },
+    {
+      "id": "persistent-agent",
+      "why": "长时运行 Agent 的停止条件是简历主线，二面该出持久化 Agent 设计、状态机手撕与场景",
+      "round": "二面", "style": "字节", "level": "社招1-3年",
+      "resume": "范宁，3 年经验。做长时运行的运维 Agent：常驻进程持续巡检，自己决定什么时候该动手、什么时候该等人审批，跑一次任务最长 6 小时，做了预算上限和停止条件，避免它无限循环烧钱。技能：Python、asyncio、Temporal。",
+      "expect": [
+        {"kind": "questions", "all": ["持久"]},
+        {"kind": "coding", "all": ["停止条件状态机"]},
+        {"kind": "scenarios", "all": ["停止条件"]}
+      ],
+      "forbid": []
+    },
+    {
+      "id": "waimai-intern",
+      "why": "美团外卖客服实习，一面该出外卖客服那组题与系统设计场景，手撕不该出困难题",
+      "round": "一面", "style": "美团", "level": "在校实习",
+      "resume": "任嘉，研二，投美团实习。学校实验室项目：给校园外卖小程序做了个客服机器人，能查订单状态、回答配送规则，用了 RAG 加几个固定工作流，日均 300 次会话。技能：Python、Flask、MySQL。",
+      "expect": [
+        {"kind": "questions", "all": ["外卖"]},
+        {"kind": "scenarios", "all": ["外卖"]},
+        {"kind": "questions", "all": ["并发", "会话"]}
+      ],
+      "forbid": [
+        {"kind": "coding", "all": ["（困难）"]}
+      ]
+    },
+    {
+      "id": "no-resume",
+      "why": "没上传简历时不能选空：应该退化成按必考程度和新鲜度给，最新一天必须有货",
+      "round": "一面", "style": "字节", "level": "应届校招",
+      "resume": "",
+      "expect": [
+        {"kind": "any", "day": "2026-09-01"},
+        {"kind": "questions", "all": ["必考"]},
+        {"kind": "coding", "all": ["中等"]}
+      ],
+      "forbid": []
+    }
+  ]
+}
