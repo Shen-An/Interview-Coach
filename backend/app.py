@@ -293,7 +293,8 @@ def turn(sid: str, req: TurnReq):
     system = prompts.build_interviewer_system(s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"))
     # 阶段进度按面试官已发言次数生成，走动态尾块注入——大头 system 保持字节稳定吃前缀缓存
     qnum = sum(1 for m in s["messages"] if m["role"] == "assistant")
-    tail = prompts.stage_hint(s["round"], qnum)
+    tail = prompts.stage_hint(s["round"], qnum) + prompts.turn_wiki(
+        s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"), text)
     # 一轮面试官的话按提示词要求不超过 120 字，代码题题面也就几百字。给 8192 等于
     # 递给模型一根足够长的绳子去自演整场对话——上限收紧本身就是最有效的一道闸。
     # fast：面试轮关思考——120 字的回话不值得先想半分钟，候选人在干等；
@@ -329,7 +330,8 @@ def turn_stream(sid: str, req: TurnReq):
     s["messages"].append({"role": "user", "content": text})
     system = prompts.build_interviewer_system(s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"))
     qnum = sum(1 for m in s["messages"] if m["role"] == "assistant")
-    tail = prompts.stage_hint(s["round"], qnum)
+    tail = prompts.stage_hint(s["round"], qnum) + prompts.turn_wiki(
+        s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"), text)
 
     def sse(obj: dict) -> str:
         return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
@@ -491,7 +493,7 @@ def kb_refresh():
 
 @app.post("/api/kb/import")
 async def kb_import(file: UploadFile):
-    """导入日更面经文档，用当前配置的 LLM 蒸馏为增量情报。"""
+    """导入日更面经文档：原文落 kb/raw/，编译产物落 kb/compiled/，再重建 UPDATES.md。"""
     ok, detail = llm.ready()
     if not ok:
         raise HTTPException(400, detail)
@@ -516,6 +518,28 @@ async def kb_import(file: UploadFile):
         raise
     except Exception as e:
         raise HTTPException(502, f"蒸馏失败：{e}")
+    return {**result, "kb": kb_mgr.state()}
+
+
+class RecompileReq(BaseModel):
+    slugs: list[str] | None = None      # 留空 = 全量重编译
+
+
+@app.post("/api/kb/recompile")
+def kb_recompile(req: RecompileReq | None = None):
+    """按当前 schema 与编译提示词，把 kb/raw/ 里的原文重新编译一遍。
+    改了契约、换了模型、或者某次编译当时失败，都从这里重放——不用让用户再上传一次。"""
+    ok, detail = llm.ready()
+    if not ok:
+        raise HTTPException(400, detail)
+    try:
+        result = kb_mgr.recompile(llm, (req.slugs if req else None) or None)
+    except Exception as e:
+        raise HTTPException(502, f"重编译失败：{e}")
+    if result["failed"] and not result["ok"]:
+        raise HTTPException(502, "重编译全部失败：" + "；".join(
+            f"{r['slug']} → {r['error']}" for r in result["failed"][:3]
+        ))
     return {**result, "kb": kb_mgr.state()}
 
 

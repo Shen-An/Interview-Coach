@@ -5,7 +5,7 @@ import os
 import re
 from pathlib import Path
 
-from . import kb
+from . import kb, retrieval
 
 KB_DIR = Path(os.environ.get("IC_KB_DIR", Path(__file__).resolve().parent.parent / "kb"))
 
@@ -160,26 +160,74 @@ def _intel_body(intel: str, limit: int) -> tuple[str, int]:
     return intel[:cut].rstrip(), dropped
 
 
-def build_interviewer_system(
-    round_name: str, company_style: str, resume: str = "", level: str = "应届校招"
-) -> str:
-    persona = _read("INTERVIEWER-PERSONA.md")
-    bank = _read("QUESTION-BANK.md")
-    # 分层注入：目录覆盖全部，正文只给最近的。更早的靠目录那行摘要被"知道存在"，
-    # 而不是像以前那样被静默丢掉——面试官要是真需要，能在目录里看见它。
+# ---------------- 素材注入（题库 + 情报，同一个检索池） ----------------
+_sel_cache: dict = {}
+
+
+def select_wiki(round_name: str, company_style: str, resume: str, level: str) -> tuple:
+    """整场面试选一次素材，返回 (store, {类别: [条目]})。题库条目和情报条目都在里面，
+    各自带 space 字段，渲染时分成两块。
+
+    每轮都会被调到（要算出字节相同的 system 才吃得到前缀缓存），所以按
+    (语料版本 / 轮次 / 风格 / 身份 / 简历) 记忆，真正打分只发生第一次。"""
+    store = retrieval.load(KB_DIR / "compiled", KB_DIR)
+    if not store["items"]:
+        return store, {}
+    key = (store["newest"], store["total"], round_name, company_style, level, resume)
+    if key not in _sel_cache:
+        if len(_sel_cache) > 8:            # 单用户本地应用，几条足够，满了整体丢
+            _sel_cache.clear()
+        _sel_cache[key] = retrieval.select(
+            store, resume=resume, round_name=round_name, style=company_style, level=level)
+    return store, _sel_cache[key]
+
+
+def turn_wiki(round_name: str, company_style: str, resume: str, level: str,
+              recent: str) -> str:
+    """每轮的素材补充，跟 stage_hint 一起挂进动态尾块。
+    只给没进 system 的条目，免得同一条在提示词里出现两遍。"""
+    store, sel = select_wiki(round_name, company_style, resume, level)
+    if not store["items"]:
+        return ""
+    used = {it["id"] for items in sel.values() for it in items}
+    picked = retrieval.select_turn(store, recent=recent, used_ids=used,
+                                   style=company_style, level=level)
+    return retrieval.render_turn(picked)
+
+
+
+def _intel_by_time() -> str:
+    """按时间注入的老路：目录全给，正文按字数只给最近的一段。
+    数据目录里只有手写或旧版 UPDATES.md、没有 compiled/ 产物时还得靠它。"""
     intel = _read("UPDATES.md")[: kb.MAX_UPDATES_CHARS]
+    if not intel.strip():
+        return ""
     catalog = _intel_catalog(intel)
     body, dropped = _intel_body(intel, kb.INTEL_BODY_CHARS)
     tail = (
         f"\n（以上是最近的全文；目录里更早的 {dropped} 节只有摘要，需要细节就顺着摘要的关键词问，别编造具体数字。）\n"
         if dropped else ""
     )
-    intel_block = (
-        "\n<最新面经情报（时效性最强，出题优先参考；越靠前越新）>\n"
-        f"目录（全部条目，先看这里定位）：\n{catalog}\n\n"
-        f"正文（最近的部分，含细节）：\n{body}{tail}</最新面经情报>\n"
-        if intel.strip() else ""
-    )
+    return ("\n<最新面经情报（时效性最强，出题优先参考；越靠前越新）>\n"
+            f"目录（全部条目，先看这里定位）：\n{catalog}\n\n"
+            f"正文（最近的部分，含细节）：\n{body}{tail}</最新面经情报>\n")
+
+
+
+def build_interviewer_system(
+    round_name: str, company_style: str, resume: str = "", level: str = "应届校招"
+) -> str:
+    persona = _read("INTERVIEWER-PERSONA.md")
+    # 题库和情报同池检索：拿简历＋轮次＋风格＋身份去全库打分，每类按配额取。
+    # 题库那一页一万字以前每轮都整份注入，而一场面试真正问得到的就十几道；情报以前是
+    # 按字数灌"最近的"，不是"相关的"。两边都挑不出来（页面读不到 / 没有编译产物）
+    # 才退回老路：题库整份给，情报按时间给。
+    store, sel = select_wiki(round_name, company_style, resume, level)
+    bank_block = retrieval.render_bank(store, sel, company_style) if store["bank_total"] else ""
+    if not bank_block:
+        bank_block = ("\n<题库（弹药库：选题、改题的素材，不是照读的剧本）>\n"
+                      f"{_read('QUESTION-BANK.md')}\n</题库>\n")
+    intel_block = retrieval.render_block(store, sel) if store["intel_total"] else _intel_by_time()
     resume_block = RESUME_RULES.format(resume=resume) if resume.strip() else NO_RESUME_RULE
     level_block = LEVEL_RULES.get(level, LEVEL_RULES["应届校招"])
     flow_block = ROUND_FLOW.get(round_name, ROUND_FLOW["一面"])
@@ -188,11 +236,7 @@ def build_interviewer_system(
 <人格卡>
 {persona}
 </人格卡>
-
-<题库（弹药库：选题、改题的素材，不是照读的剧本）>
-{bank}
-</题库>
-{intel_block}{resume_block}
+{bank_block}{intel_block}{resume_block}
 <候选人身份：{level}>
 {level_block}
 </候选人身份>
