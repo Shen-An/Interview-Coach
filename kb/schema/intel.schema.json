@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://interview-coach.local/schema/intel.schema.json",
+  "title": "编译后的增量情报（compiled intel artifact）",
+  "description": "kb/raw/ 下的原文经 LLM 编译后的结构化产物，一份原文一份 JSON，落在 kb/compiled/。UPDATES.md 是它的渲染视图，不是事实来源。meta 由代码填写，其余字段由 LLM 产出。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "topic", "questions", "scenarios", "events", "coding"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "description": "代码填写的溯源信息，LLM 不产出这一节。",
+      "additionalProperties": false,
+      "required": ["kind", "source", "slug", "compiled_at"],
+      "properties": {
+        "kind": {
+          "description": "import=用户导入的日更文档；research=联网检索的当日情报",
+          "enum": ["import", "research"]
+        },
+        "source": {
+          "type": "string",
+          "description": "原始来源名（上传的文件名，或「每日自动更新」）",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "slug": {
+          "type": "string",
+          "description": "raw/ 与 compiled/ 共用的稳定文件名主干，决定重复导入时替换谁",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "raw_file": { "type": "string", "maxLength": 200 },
+        "raw_chars": { "type": "integer", "minimum": 0 },
+        "compiled_at": {
+          "type": "string",
+          "description": "编译时刻 ISO 8601（本地时区），UPDATES.md 的排序键",
+          "minLength": 16,
+          "maxLength": 32
+        },
+        "recompiled_at": {
+          "type": "string",
+          "description": "最近一次重编译时刻；重编译不改 compiled_at，排序才不会被翻乱",
+          "minLength": 16,
+          "maxLength": 32
+        },
+        "section_title": { "type": "string", "maxLength": 200 },
+        "model": { "type": "string", "maxLength": 120 },
+        "no_news": { "type": "boolean" },
+        "sources": {
+          "type": "array",
+          "description": "research 专有：本次实际引用到的网页",
+          "maxItems": 60,
+          "items": {
+            "type": "object",
+            "required": ["url"],
+            "properties": {
+              "url": { "type": "string", "maxLength": 600 },
+              "title": { "type": "string", "maxLength": 300 }
+            }
+          }
+        }
+      }
+    },
+    "topic": {
+      "type": "array",
+      "description": "3-5 个最有出题价值的关键词，渲染成情报目录里那一行摘要",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": { "type": "string", "minLength": 1, "maxLength": 24 }
+    },
+    "questions": {
+      "type": "array",
+      "description": "新增面试题",
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["q", "frequency"],
+        "properties": {
+          "q": { "type": "string", "minLength": 4, "maxLength": 300 },
+          "company": { "type": "string", "maxLength": 60 },
+          "frequency": { "enum": ["必考", "高频", "偶尔"] },
+          "answer_hint": { "type": "string", "maxLength": 400 },
+          "platform": { "type": "string", "maxLength": 40 }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "description": "新场景设计题素材：面试官拿来搭台子用",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "background", "focus"],
+        "properties": {
+          "title": { "type": "string", "minLength": 2, "maxLength": 120 },
+          "background": { "type": "string", "minLength": 4, "maxLength": 500 },
+          "scale": { "type": "string", "maxLength": 200 },
+          "focus": { "type": "string", "minLength": 2, "maxLength": 300 },
+          "platform": { "type": "string", "maxLength": 40 }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "description": "行业新事件及其面试考点",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event", "ask"],
+        "properties": {
+          "event": { "type": "string", "minLength": 4, "maxLength": 300 },
+          "ask": { "type": "string", "minLength": 4, "maxLength": 400 },
+          "platform": { "type": "string", "maxLength": 40 }
+        }
+      }
+    },
+    "coding": {
+      "type": "array",
+      "description": "新手撕题，只要题名与考察点，不收完整代码",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "focus"],
+        "properties": {
+          "title": { "type": "string", "minLength": 2, "maxLength": 120 },
+          "focus": { "type": "string", "minLength": 2, "maxLength": 300 },
+          "difficulty": { "enum": ["简单", "中等", "困难"] },
+          "platform": { "type": "string", "maxLength": 40 }
+        }
+      }
+    }
+  }
+}
