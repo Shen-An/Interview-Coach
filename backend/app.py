@@ -369,7 +369,9 @@ def turn(sid: str, req: TurnReq):
     system = prompts.build_interviewer_system(s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"))
     # 阶段进度按面试官已发言次数生成，走动态尾块注入——大头 system 保持字节稳定吃前缀缓存
     qnum = sum(1 for m in s["messages"] if m["role"] == "assistant")
-    tail = prompts.stage_hint(s["round"], qnum) + prompts.turn_wiki(
+    tail = prompts.stage_hint(s["round"], qnum) + prompts.project_rotation_hint(
+        s["round"], qnum, s.get("resume", "")
+    ) + prompts.turn_wiki(
         s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"), text)
     # 一轮面试官的话按提示词要求不超过 120 字，代码题题面也就几百字。给 8192 等于
     # 递给模型一根足够长的绳子去自演整场对话——上限收紧本身就是最有效的一道闸。
@@ -407,7 +409,9 @@ def turn_stream(sid: str, req: TurnReq):
     s["messages"].append({"role": "user", "content": text})
     system = prompts.build_interviewer_system(s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"))
     qnum = sum(1 for m in s["messages"] if m["role"] == "assistant")
-    tail = prompts.stage_hint(s["round"], qnum) + prompts.turn_wiki(
+    tail = prompts.stage_hint(s["round"], qnum) + prompts.project_rotation_hint(
+        s["round"], qnum, s.get("resume", "")
+    ) + prompts.turn_wiki(
         s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"), text)
 
     def sse(obj: dict) -> str:
