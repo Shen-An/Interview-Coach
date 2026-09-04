@@ -261,6 +261,8 @@ def get_config():
         "env_path": str(ENV_PATH),
         "resume": _resume_state(),
         "kb": kb_mgr.state(),
+        # 前端用该能力标记检测安装包是否混用了旧后端，避免只显示模糊的 404。
+        "qa_conversations": True,
     }
 
 

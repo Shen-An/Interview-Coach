@@ -87,8 +87,14 @@ function waitForBackend(retries = 60) {
       if (backendProc && backendProc.exitCode !== null) {
         return reject(new Error(`后端启动即退出（exit code ${backendProc.exitCode}），日志：${logPath()}`));
       }
-      const req = http.get(`http://127.0.0.1:${PORT}/api/config`, (res) => {
+      const req = http.get(`http://127.0.0.1:${PORT}/api/qa/conversations`, (res) => {
         res.resume();
+        if (res.statusCode === 404) {
+          return reject(new Error("当前后端版本不支持问答多会话，请退出托盘中的旧版后重新安装最新版。"));
+        }
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          return reject(new Error(`后端健康检查失败（HTTP ${res.statusCode}），日志：${logPath()}`));
+        }
         resolve();
       });
       req.on("error", () => {

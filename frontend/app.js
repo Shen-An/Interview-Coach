@@ -295,11 +295,24 @@ const app = createApp({
         ? date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
         : date.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
     },
+    async qaApiError(response, fallback) {
+      let detail = "";
+      try {
+        const data = await response.json();
+        detail = data.detail || data.message || "";
+      } catch {
+        // 旧后端可能只返回纯文本，下面统一使用状态码提示。
+      }
+      if (response.status === 404) {
+        return "当前后端版本不支持多会话，请完全退出托盘中的旧版 Interview Coach 后安装最新版。";
+      }
+      return detail || `${fallback}（HTTP ${response.status}）`;
+    },
     async loadQaConversations(preferredId = null) {
       this.qaLoadingConversations = true;
       try {
         const r = await fetch("/api/qa/conversations");
-        if (!r.ok) throw new Error("会话列表加载失败");
+        if (!r.ok) throw new Error(await this.qaApiError(r, "会话列表加载失败"));
         const data = await r.json();
         this.qaConversations = data.items || [];
         const target = preferredId || this.qaConversationId;
@@ -334,7 +347,7 @@ const app = createApp({
       this.qaSwitching = true;
       try {
         const r = await fetch(`/api/qa/conversations/${encodeURIComponent(id)}`);
-        if (!r.ok) throw new Error((await r.json()).detail || "会话读取失败");
+        if (!r.ok) throw new Error(await this.qaApiError(r, "会话读取失败"));
         const conversation = await r.json();
         this.qaConversationId = conversation.id;
         this.qaMessages = (conversation.messages || []).map((message) => ({
@@ -360,7 +373,7 @@ const app = createApp({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({}),
         });
-        if (!r.ok) throw new Error((await r.json()).detail || "新建会话失败");
+        if (!r.ok) throw new Error(await this.qaApiError(r, "新建会话失败"));
         const conversation = await r.json();
         this.qaConversations = [conversation, ...this.qaConversations.filter((item) => item.id !== conversation.id)];
         this.qaConversationId = conversation.id;
@@ -388,7 +401,7 @@ const app = createApp({
       const deletedId = this.qaConversationId;
       try {
         const r = await fetch(`/api/qa/conversations/${encodeURIComponent(deletedId)}`, { method: "DELETE" });
-        if (!r.ok) throw new Error((await r.json()).detail || "删除失败");
+        if (!r.ok) throw new Error(await this.qaApiError(r, "删除失败"));
         this.qaConversations = this.qaConversations.filter((item) => item.id !== deletedId);
         this.qaConversationId = null;
         this.qaMessages = [];

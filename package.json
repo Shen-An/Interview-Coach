@@ -1,6 +1,6 @@
 {
   "name": "interview-coach",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "description": "语音模拟面试助手 · 面试官 (AI Agent 方向)",
   "main": "electron/main.js",
   "author": "interview-coach",
