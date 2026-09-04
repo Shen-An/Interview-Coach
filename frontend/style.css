@@ -544,6 +544,26 @@ html.dark .pg .el-divider--horizontal, html.light .pg .el-divider--horizontal { 
    独立面试问答
    ============================================================ */
 .qa-page { gap: 18px; }
+.qa-workspace { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 16px; min-height: 0; align-items: start; }
+.qa-main { min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.qa-conversations { padding: 16px 12px 10px; position: sticky; top: 0; min-height: 280px; }
+.qa-conversations-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 0 6px 12px; border-bottom: 1px solid var(--line-soft); }
+.qa-conversations-head h2 { margin-top: 4px; font-size: .98rem; }
+.qa-conversations-head .el-button { color: var(--signal); }
+.qa-conversation-list { display: flex; flex-direction: column; gap: 3px; padding-top: 8px; max-height: min(56vh, 560px); overflow-y: auto; }
+.qa-conversation-item { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text); padding: 10px 8px; cursor: pointer; transition: background .15s, color .15s; }
+.qa-conversation-item:hover:not(:disabled) { background: var(--ink-800); }
+.qa-conversation-item.active { background: var(--signal-wash); color: var(--signal-hi); }
+.qa-conversation-item:disabled { opacity: .58; cursor: not-allowed; }
+.qa-conversation-item-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.qa-conversation-item b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; font-weight: 600; }
+.qa-conversation-item small { color: var(--text-faint); font-size: .68rem; }
+.qa-conversation-active { flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--signal); }
+.qa-conversations-state { padding: 22px 8px 12px; color: var(--text-faint); font-size: .75rem; line-height: 1.6; }
+.qa-conversations-state .mono { color: var(--signal); font-size: .68rem; }
+.qa-conversations-state p { margin: 7px 0 2px; color: var(--text-dim); }
+.qa-conversations-state small { display: block; }
+.qa-conversations-foot { border-top: 1px solid var(--line-soft); margin-top: 8px; padding: 8px 3px 0; }
 .qa-page-head { margin-bottom: 0; }
 .qa-hero { padding: 26px 28px 22px; }
 .qa-hero-copy { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px; }
@@ -872,6 +892,9 @@ html.light ::-webkit-scrollbar-thumb:hover { background: #9BAFB6; background-cli
   .composer-main { flex-wrap: wrap; }
   .mic { flex: 1; }
   .msg { max-width: 92%; }
+  .qa-workspace { grid-template-columns: 1fr; }
+  .qa-conversations { position: static; min-height: 0; }
+  .qa-conversation-list { max-height: 190px; }
   .qa-hero { padding: 20px 16px 18px; }
   .qa-composer-foot { align-items: flex-end; }
   .qa-question { max-width: 94%; }

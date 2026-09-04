@@ -68,6 +68,10 @@ const app = createApp({
       draft: "",
       qaMessages: [],
       qaDraft: "",
+      qaConversations: [],
+      qaConversationId: null,
+      qaLoadingConversations: false,
+      qaSwitching: false,
       qaBusy: false,
       qaStage: "idle", // idle / waiting / streaming / done / error
       qaTiming: null,
@@ -242,6 +246,7 @@ const app = createApp({
     if (this.cfg.kb) this.kb = this.cfg.kb;
     if (!this.cfg.ready) this.openSettings();
     this.loadHistory();
+    this.loadQaConversations();
     this.loadIntelLatest();
     // hash 路由：前进后退/刷新都能落回原页面
     if (!location.hash) history.replaceState(null, "", "#/" + this.page);
@@ -281,13 +286,130 @@ const app = createApp({
       const seconds = timing.total_ms / 1000;
       return seconds < 10 ? `${seconds.toFixed(1)}s` : `${Math.round(seconds)}s`;
     },
+    qaConversationTime(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      const now = new Date();
+      const sameDay = date.toDateString() === now.toDateString();
+      return sameDay
+        ? date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
+        : date.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+    },
+    async loadQaConversations(preferredId = null) {
+      this.qaLoadingConversations = true;
+      try {
+        const r = await fetch("/api/qa/conversations");
+        if (!r.ok) throw new Error("会话列表加载失败");
+        const data = await r.json();
+        this.qaConversations = data.items || [];
+        const target = preferredId || this.qaConversationId;
+        const found = target && this.qaConversations.some((item) => item.id === target);
+        if (found) {
+          if (this.qaConversationId !== target || !this.qaMessages.length) await this.loadQaConversation(target);
+        } else if (this.qaConversations.length) {
+          await this.loadQaConversation(this.qaConversations[0].id);
+        } else {
+          this.qaConversationId = null;
+          this.qaMessages = [];
+          this.qaStage = "idle";
+          this.qaTiming = null;
+        }
+      } catch (e) {
+        this.qaConversations = [];
+        if (!this.qaMessages.length) ElMessage.error("问答会话加载失败：" + e.message);
+      } finally {
+        this.qaLoadingConversations = false;
+      }
+    },
+    async refreshQaConversationList() {
+      try {
+        const r = await fetch("/api/qa/conversations");
+        if (r.ok) this.qaConversations = (await r.json()).items || [];
+      } catch {
+        // 问答已经完成时，列表刷新失败不应覆盖当前回答。
+      }
+    },
+    async loadQaConversation(id) {
+      if (!id || this.qaBusy || this.qaSwitching) return;
+      this.qaSwitching = true;
+      try {
+        const r = await fetch(`/api/qa/conversations/${encodeURIComponent(id)}`);
+        if (!r.ok) throw new Error((await r.json()).detail || "会话读取失败");
+        const conversation = await r.json();
+        this.qaConversationId = conversation.id;
+        this.qaMessages = (conversation.messages || []).map((message) => ({
+          role: message.role,
+          content: message.content || "",
+          sources: message.sources || [],
+        }));
+        this.qaDraft = "";
+        this.qaStage = this.qaMessages.length ? "done" : "idle";
+        this.qaTiming = null;
+        this.$nextTick(() => this.scrollQaDown());
+      } catch (e) {
+        ElMessage.error("问答会话读取失败：" + e.message);
+      } finally {
+        this.qaSwitching = false;
+      }
+    },
+    async createQaConversation() {
+      if (this.qaBusy || this.qaSwitching) return false;
+      try {
+        const r = await fetch("/api/qa/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (!r.ok) throw new Error((await r.json()).detail || "新建会话失败");
+        const conversation = await r.json();
+        this.qaConversations = [conversation, ...this.qaConversations.filter((item) => item.id !== conversation.id)];
+        this.qaConversationId = conversation.id;
+        this.qaMessages = [];
+        this.qaDraft = "";
+        this.qaStage = "idle";
+        this.qaTiming = null;
+        return true;
+      } catch (e) {
+        ElMessage.error("新建问答会话失败：" + e.message);
+        return false;
+      }
+    },
+    async deleteQaConversation() {
+      if (!this.qaConversationId || this.qaBusy || this.qaSwitching) return;
+      try {
+        await ElMessageBox.confirm("删除后，这个主题的问答记录将无法恢复。", "删除问答会话？", {
+          confirmButtonText: "删除",
+          cancelButtonText: "保留",
+          type: "warning",
+        });
+      } catch {
+        return;
+      }
+      const deletedId = this.qaConversationId;
+      try {
+        const r = await fetch(`/api/qa/conversations/${encodeURIComponent(deletedId)}`, { method: "DELETE" });
+        if (!r.ok) throw new Error((await r.json()).detail || "删除失败");
+        this.qaConversations = this.qaConversations.filter((item) => item.id !== deletedId);
+        this.qaConversationId = null;
+        this.qaMessages = [];
+        this.qaStage = "idle";
+        this.qaTiming = null;
+        if (this.qaConversations.length) await this.loadQaConversation(this.qaConversations[0].id);
+        ElMessage.success("问答会话已删除");
+      } catch (e) {
+        ElMessage.error("删除问答会话失败：" + e.message);
+      }
+    },
     async askQuestion(preset) {
       const text = (typeof preset === "string" ? preset : this.qaDraft).trim();
-      if (!text || this.qaBusy) return;
+      if (!text || this.qaBusy || this.qaSwitching) return;
       if (!this.cfg.ready) {
         ElMessage.warning("请先在设置里配置对话模型");
         return;
       }
+      if (!this.qaConversationId && !(await this.createQaConversation())) return;
+      const conversationId = this.qaConversationId;
+      // 有会话 id 时后端从磁盘读取上下文；history 只为旧客户端/旧服务保留。
       const history = this.qaMessages.map((m) => ({
         role: m.role,
         content: m.content || "",
@@ -302,8 +424,6 @@ const app = createApp({
       this.scrollQaDown();
 
       const append = (piece) => {
-        // 增量先放入非展示缓冲区，按 32ms 批量刷新，避免每个 token 都触发
-        // Vue patch、Markdown 全量解析和布局滚动。
         holder._pending = (holder._pending || "") + piece;
         if (this.qaStage === "waiting") this.qaStage = "streaming";
         this.scheduleStreamRender(holder, "qaBox");
@@ -312,7 +432,7 @@ const app = createApp({
         const r = await fetch("/api/qa/ask/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question: text, history }),
+          body: JSON.stringify({ question: text, conversation_id: conversationId, history }),
         });
         if (!r.ok) throw new Error((await r.json()).detail || "请求失败");
         if (!r.body) throw new Error("这个环境不支持流式读取");
@@ -330,6 +450,9 @@ const app = createApp({
             for (const line of frame.split("\n")) {
               if (!line.startsWith("data: ")) continue;
               const ev = JSON.parse(line.slice(6));
+              if (ev.conversation_id && ev.conversation_id !== this.qaConversationId) {
+                this.qaConversationId = ev.conversation_id;
+              }
               if (ev.d) append(ev.d);
               else if (ev.err) { errMsg = ev.err; this.qaTiming = ev.timing || null; }
               else if (ev.done) {
@@ -354,16 +477,13 @@ const app = createApp({
         ElMessage.error("问答失败：" + e.message);
       } finally {
         this.qaBusy = false;
+        await this.refreshQaConversationList();
         this.flushStreamRender(holder, "qaBox");
         this.scrollQaDown();
       }
     },
-    newQaConversation() {
-      if (!this.qaMessages.length) return;
-      this.qaMessages = [];
-      this.qaDraft = "";
-      this.qaStage = "idle";
-      this.qaTiming = null;
+    async newQaConversation() {
+      await this.createQaConversation();
     },
     copyQaAnswer(text) {
       this.copy(text, "回答已复制");

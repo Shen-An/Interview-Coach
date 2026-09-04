@@ -248,79 +248,116 @@
           <h1>面试问答</h1>
           <p class="page-note">不用开始一场面试，直接把卡住的技术问题问清楚</p>
         </div>
-        <el-button v-if="qaMessages.length" plain :disabled="qaBusy" @click="newQaConversation">
+        <el-button plain :disabled="qaBusy || qaSwitching" @click="newQaConversation">
           <el-icon><icon-plus></icon-plus></el-icon> 新建问答
         </el-button>
       </div>
 
-      <section class="card qa-hero">
-        <div class="qa-hero-copy">
-          <div class="qa-orb"><el-icon><icon-chat-line-round></icon-chat-line-round></el-icon></div>
-          <div>
-            <h2>今天想攻克哪道题？</h2>
-            <p class="dim">题库和情报库会先帮你找相关依据，再整理成可以在面试里讲清楚的答案。</p>
-          </div>
-        </div>
-        <div class="qa-composer">
-          <el-input v-model="qaDraft" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }"
-                    resize="none" :disabled="qaBusy"
-                    placeholder="例如：如何解决工具调用失败和兜底？"
-                    @keydown.ctrl.enter.prevent="askQuestion"></el-input>
-          <div class="qa-composer-foot">
-            <span v-if="qaBusy" class="qa-status" :class="qaStage">{{ qaStage === 'waiting' ? '已发送，等待模型首段…' : '正在生成回答…' }}</span>
-            <span v-else-if="qaStage === 'done' && qaTiming" class="qa-status done">回答完成 · {{ timingLabel(qaTiming) }}</span>
-            <span v-else class="dim small">Ctrl + Enter 发送 · 支持继续追问</span>
-            <el-button type="primary" class="qa-send-btn" :loading="qaBusy"
-                       :disabled="!qaDraft.trim() || qaBusy || !cfg.ready" @click="askQuestion">
-              <el-icon v-if="!qaBusy"><icon-search></icon-search></el-icon>
-              {{ qaBusy ? '回答中…' : '开始回答' }}
+      <div class="qa-workspace">
+        <aside class="card qa-conversations">
+          <div class="qa-conversations-head">
+            <div>
+              <span class="eyebrow">SESSIONS</span>
+              <h2>问答会话</h2>
+            </div>
+            <el-button text circle :disabled="qaBusy || qaSwitching" title="新建会话" @click="newQaConversation">
+              <el-icon><icon-plus></icon-plus></el-icon>
             </el-button>
           </div>
-        </div>
-        <div class="qa-suggestions">
-          <span class="dim small">可以这样问</span>
-          <button v-for="q in qaSuggested" :key="q" class="qa-suggestion"
-                  :disabled="qaBusy || !cfg.ready" @click="askQuestion(q)">{{ q }}</button>
-        </div>
-      </section>
+          <div v-if="qaLoadingConversations" class="qa-conversations-state">正在恢复会话…</div>
+          <div v-else-if="!qaConversations.length" class="qa-conversations-state">
+            <span class="mono">TIP</span>
+            <p>还没有问答会话</p>
+            <small>点击上方「新建问答」，把不同主题分开保存。</small>
+          </div>
+          <div v-else class="qa-conversation-list">
+            <button v-for="conversation in qaConversations" :key="conversation.id"
+                    :class="['qa-conversation-item', { active: qaConversationId === conversation.id }]"
+                    :disabled="qaBusy || qaSwitching"
+                    @click="loadQaConversation(conversation.id)">
+              <span class="qa-conversation-item-main">
+                <b>{{ conversation.title }}</b>
+                <small>{{ conversation.message_count || 0 }} 条消息 · {{ qaConversationTime(conversation.updated_at) }}</small>
+              </span>
+              <span v-if="qaConversationId === conversation.id" class="qa-conversation-active"></span>
+            </button>
+          </div>
+          <div v-if="qaConversationId" class="qa-conversations-foot">
+            <el-button link type="danger" size="small" :disabled="qaBusy || qaSwitching" @click="deleteQaConversation">
+              <el-icon><icon-delete></icon-delete></el-icon> 删除当前会话
+            </el-button>
+          </div>
+        </aside>
 
-      <section v-if="qaMessages.length" class="card qa-thread-card">
-        <div class="card-head">
-          <span class="eyebrow">CONVERSATION</span>
-          <h2>问答记录</h2>
-          <span class="card-note">回答基于当前知识库检索生成</span>
-        </div>
-        <div ref="qaBox" class="qa-thread">
-          <div v-for="(m, i) in qaMessages" :key="i" :class="['qa-message', m.role]">
-            <div v-if="m.role === 'user'" class="qa-question">{{ m.content }}</div>
-            <template v-else>
-              <article v-if="m.content" class="dossier qa-answer" v-html="qaHtml(m.content)"></article>
-              <div v-else class="qa-thinking"><i></i><i></i><i></i><span>正在检索并组织答案…</span></div>
-              <div v-if="m.content" class="qa-answer-tools">
-                <el-button link size="small" @click="copyQaAnswer(m.content)">复制回答</el-button>
+        <div class="qa-main">
+          <section class="card qa-hero">
+            <div class="qa-hero-copy">
+              <div class="qa-orb"><el-icon><icon-chat-line-round></icon-chat-line-round></el-icon></div>
+              <div>
+                <h2>今天想攻克哪道题？</h2>
+                <p class="dim">题库和情报库会先帮你找相关依据，再整理成可以在面试里讲清楚的答案。</p>
               </div>
-              <div v-if="m.sources && m.sources.length" class="qa-sources">
-                <div class="qa-sources-head">
-                  <span>参考来源</span>
-                </div>
-                <div class="qa-source-list">
-                  <div v-for="source in m.sources" :key="source.id || source.title" class="qa-source">
-                    <span class="qa-source-kind">{{ source.type }}</span>
-                    <span class="qa-source-title">{{ source.title }}</span>
-                    <span v-if="source.date" class="mono dim small">{{ source.date }}</span>
-                    <a v-for="url in (source.urls || [])" :key="url.url" :href="url.url" target="_blank" rel="noreferrer" class="qa-source-link">
-                      {{ url.title || '原文' }}
-                    </a>
+            </div>
+            <div class="qa-composer">
+              <el-input v-model="qaDraft" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }"
+                        resize="none" :disabled="qaBusy || qaSwitching"
+                        placeholder="例如：如何解决工具调用失败和兜底？"
+                        @keydown.ctrl.enter.prevent="askQuestion"></el-input>
+              <div class="qa-composer-foot">
+                <span v-if="qaBusy" class="qa-status" :class="qaStage">{{ qaStage === 'waiting' ? '已发送，等待模型首段…' : '正在生成回答…' }}</span>
+                <span v-else-if="qaStage === 'done' && qaTiming" class="qa-status done">回答完成 · {{ timingLabel(qaTiming) }}</span>
+                <span v-else class="dim small">Ctrl + Enter 发送 · 支持继续追问</span>
+                <el-button type="primary" class="qa-send-btn" :loading="qaBusy"
+                           :disabled="!qaDraft.trim() || qaBusy || qaSwitching || !cfg.ready" @click="askQuestion">
+                  <el-icon v-if="!qaBusy"><icon-search></icon-search></el-icon>
+                  {{ qaBusy ? '回答中…' : '开始回答' }}
+                </el-button>
+              </div>
+            </div>
+            <div class="qa-suggestions">
+              <span class="dim small">可以这样问</span>
+              <button v-for="q in qaSuggested" :key="q" class="qa-suggestion"
+                      :disabled="qaBusy || qaSwitching || !cfg.ready" @click="askQuestion(q)">{{ q }}</button>
+            </div>
+          </section>
+
+          <section v-if="qaMessages.length" class="card qa-thread-card">
+            <div class="card-head">
+              <span class="eyebrow">CONVERSATION</span>
+              <h2>问答记录</h2>
+              <span class="card-note">回答基于当前知识库检索生成</span>
+            </div>
+            <div ref="qaBox" class="qa-thread">
+              <div v-for="(m, i) in qaMessages" :key="i" :class="['qa-message', m.role]">
+                <div v-if="m.role === 'user'" class="qa-question">{{ m.content }}</div>
+                <template v-else>
+                  <article v-if="m.content" class="dossier qa-answer" v-html="qaHtml(m.content)"></article>
+                  <div v-else class="qa-thinking"><i></i><i></i><i></i><span>正在检索并组织答案…</span></div>
+                  <div v-if="m.content" class="qa-answer-tools">
+                    <el-button link size="small" @click="copyQaAnswer(m.content)">复制回答</el-button>
                   </div>
-                </div>
+                  <div v-if="m.sources && m.sources.length" class="qa-sources">
+                    <div class="qa-sources-head"><span>参考来源</span></div>
+                    <div class="qa-source-list">
+                      <div v-for="source in m.sources" :key="source.id || source.title" class="qa-source">
+                        <span class="qa-source-kind">{{ source.type }}</span>
+                        <span class="qa-source-title">{{ source.title }}</span>
+                        <span v-if="source.date" class="mono dim small">{{ source.date }}</span>
+                        <a v-for="url in (source.urls || [])" :key="url.url" :href="url.url" target="_blank" rel="noreferrer" class="qa-source-link">
+                          {{ url.title || '原文' }}
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </template>
               </div>
-            </template>
+            </div>
+          </section>
+
+          <div v-else class="qa-empty-note">
+            <span class="mono">TIP</span> 先问一个具体问题，答案会比打开一整场面试更快到手。
           </div>
         </div>
-      </section>
-
-      <div v-else class="qa-empty-note">
-        <span class="mono">TIP</span> 先问一个具体问题，答案会比打开一整场面试更快到手。
       </div>
     </main>
 

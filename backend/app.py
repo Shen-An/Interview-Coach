@@ -12,6 +12,7 @@ import os
 import re
 import time
 import uuid
+import threading
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
@@ -55,6 +56,10 @@ logger = logging.getLogger("interview_coach")
 
 SESSIONS_DIR = DATA_DIR / "sessions"
 SESSIONS_DIR.mkdir(exist_ok=True)
+
+QA_CONVERSATIONS_DIR = DATA_DIR / "qa-conversations"
+QA_CONVERSATIONS_DIR.mkdir(exist_ok=True)
+_qa_store_lock = threading.RLock()
 
 RESUME_PATH = DATA_DIR / "resume.txt"
 RESUME_META = DATA_DIR / "resume.meta.json"
@@ -115,8 +120,13 @@ class TurnReq(BaseModel):
     text: str
 
 
+class ConversationCreateReq(BaseModel):
+    title: str | None = None
+
+
 class AskReq(BaseModel):
     question: str
+    conversation_id: str | None = None
     history: list[dict] = Field(default_factory=list)
 
 
@@ -430,6 +440,145 @@ def turn_stream(sid: str, req: TurnReq):
     )
 
 
+def _qa_now() -> str:
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def _qa_path(conversation_id: str) -> Path:
+    """Resolve a conversation id without allowing path traversal."""
+    value = str(conversation_id or "").strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{32}", value):
+        raise HTTPException(400, "非法的问答会话 id")
+    path = (QA_CONVERSATIONS_DIR / f"{value}.json").resolve()
+    if path.parent != QA_CONVERSATIONS_DIR.resolve():
+        raise HTTPException(400, "非法的问答会话 id")
+    return path
+
+
+def _qa_title(value: str | None, fallback: str = "新建问答") -> str:
+    text = re.sub(r"\s+", " ", str(value or "").strip())
+    return (text[:42] or fallback).strip()
+
+
+def _qa_normalize(data: dict, conversation_id: str) -> dict:
+    now = _qa_now()
+    messages = []
+    for message in data.get("messages") or []:
+        if not isinstance(message, dict):
+            continue
+        role = message.get("role")
+        content = str(message.get("content") or "").strip()
+        if role not in ("user", "assistant") or not content:
+            continue
+        item = {"role": role, "content": content[:12000]}
+        if role == "assistant" and isinstance(message.get("sources"), list):
+            item["sources"] = message["sources"]
+        messages.append(item)
+    created_at = str(data.get("created_at") or now)
+    updated_at = str(data.get("updated_at") or created_at)
+    return {
+        "id": conversation_id,
+        "title": _qa_title(data.get("title")),
+        "created_at": created_at,
+        "updated_at": updated_at,
+        "messages": messages,
+    }
+
+
+def _qa_read(conversation_id: str) -> dict:
+    path = _qa_path(conversation_id)
+    if not path.exists():
+        raise HTTPException(404, "问答会话不存在")
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        raise HTTPException(404, "问答会话不存在或已损坏")
+    if not isinstance(raw, dict):
+        raise HTTPException(404, "问答会话不存在或已损坏")
+    return _qa_normalize(raw, path.stem)
+
+
+def _qa_write(conversation: dict) -> dict:
+    conversation = _qa_normalize(conversation, conversation["id"])
+    path = _qa_path(conversation["id"])
+    tmp = path.with_suffix(f".{uuid.uuid4().hex}.tmp")
+    try:
+        tmp.write_text(json.dumps(conversation, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
+    return conversation
+
+
+def _qa_metadata(conversation: dict) -> dict:
+    messages = conversation.get("messages") or []
+    return {
+        "id": conversation["id"],
+        "title": conversation.get("title") or "新建问答",
+        "created_at": conversation.get("created_at", ""),
+        "updated_at": conversation.get("updated_at", ""),
+        "message_count": len(messages),
+    }
+
+
+def _qa_list() -> list[dict]:
+    items = []
+    with _qa_store_lock:
+        for path in QA_CONVERSATIONS_DIR.glob("*.json"):
+            try:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+                if not isinstance(raw, dict) or not re.fullmatch(r"[0-9a-f]{32}", path.stem):
+                    continue
+                conversation = _qa_normalize(raw, path.stem)
+                items.append(_qa_metadata(conversation))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                # 一个损坏的本地文件不应阻塞其他会话恢复。
+                continue
+    return sorted(items, key=lambda item: item.get("updated_at", ""), reverse=True)
+
+
+def _qa_create(title: str | None = None) -> dict:
+    conversation = {
+        "id": uuid.uuid4().hex,
+        "title": _qa_title(title),
+        "created_at": _qa_now(),
+        "updated_at": _qa_now(),
+        "messages": [],
+    }
+    with _qa_store_lock:
+        return _qa_write(conversation)
+
+
+@app.get("/api/qa/conversations")
+def qa_conversation_list():
+    return {"items": _qa_list()}
+
+
+@app.post("/api/qa/conversations")
+def qa_conversation_create(req: ConversationCreateReq | None = None):
+    return _qa_metadata(_qa_create(req.title if req else None))
+
+
+@app.get("/api/qa/conversations/{conversation_id}")
+def qa_conversation_get(conversation_id: str):
+    with _qa_store_lock:
+        return _qa_read(conversation_id)
+
+
+@app.delete("/api/qa/conversations/{conversation_id}")
+def qa_conversation_delete(conversation_id: str):
+    path = _qa_path(conversation_id)
+    with _qa_store_lock:
+        if not path.exists():
+            raise HTTPException(404, "问答会话不存在")
+        try:
+            path.unlink()
+        except OSError as exc:
+            raise HTTPException(500, f"删除问答会话失败：{exc}")
+    return {"ok": True, "id": path.stem}
+
+
 def _sanitize_qa_reply(reply: str) -> str:
     """清掉偶尔混入的角色前缀或下一轮对话，不影响正常 Markdown。"""
     cleaned = (reply or "").strip()
@@ -467,7 +616,7 @@ def _qa_sources(items: list[dict]) -> list[dict]:
 
 @app.post("/api/qa/ask/stream")
 def qa_ask_stream(req: AskReq):
-    """独立面试问答：检索本地知识库后流式回答，不创建面试会话。"""
+    """独立面试问答：按本地持久化会话检索并流式回答。"""
     request_started = time.perf_counter()
     ok, detail = llm.ready()
     if not ok:
@@ -478,21 +627,38 @@ def qa_ask_stream(req: AskReq):
     if len(question) > 2000:
         raise HTTPException(400, "问题太长了，请压缩到 2000 字以内")
 
+    # 新客户端绑定持久化会话；旧客户端没有 id 时仍可用 history，并自动获得一个会话。
+    with _qa_store_lock:
+        if req.conversation_id:
+            conversation = _qa_read(req.conversation_id)
+        else:
+            conversation = _qa_create()
+        conversation_id = conversation["id"]
+        stored_messages = conversation.get("messages", [])
+        if req.conversation_id:
+            source_messages = stored_messages
+        else:
+            source_messages = req.history or []
+        context_messages = []
+        for message in source_messages[-8:]:
+            if not isinstance(message, dict):
+                continue
+            role = message.get("role")
+            content = str(message.get("content") or "").strip()
+            if role in ("user", "assistant") and content:
+                context_messages.append({"role": role, "content": content[:6000]})
+        # 用户问题先落盘：即使模型超时/中断，刷新后也能看到问题并继续重试。
+        if not stored_messages and conversation.get("title") == "新建问答":
+            conversation["title"] = _qa_title(question)
+        conversation["messages"] = stored_messages + [{"role": "user", "content": question}]
+        conversation["updated_at"] = _qa_now()
+        _qa_write(conversation)
+
     store = retrieval.load(DATA_DIR / "kb" / "compiled", DATA_DIR / "kb")
     items = retrieval.search_question(store, question, limit=8)
     context = retrieval.render_qa_context(items)
     system = prompts.build_qa_system(context)
-
-    # 问答页不创建后端 session；只接收最近几轮，防止前端上下文无限增长。
-    messages = []
-    for message in (req.history or [])[-8:]:
-        if not isinstance(message, dict):
-            continue
-        role = message.get("role")
-        content = str(message.get("content") or "").strip()
-        if role in ("user", "assistant") and content:
-            messages.append({"role": role, "content": content[:6000]})
-    messages.append({"role": "user", "content": question})
+    context_messages.append({"role": "user", "content": question})
 
     def sse(obj: dict) -> str:
         return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
@@ -504,25 +670,34 @@ def qa_ask_stream(req: AskReq):
         pieces = []
         try:
             for d in llm.chat_stream(
-                system, messages, max_tokens=_env_int("QA_MAX_OUTPUT_TOKENS", 3200, 800, 8000),
+                system, context_messages, max_tokens=_env_int("QA_MAX_OUTPUT_TOKENS", 3200, 800, 8000),
                 fast=False, cache_last=False, on_event=observe,
             ):
                 pieces.append(d)
-                yield sse({"d": d})
+                yield sse({"d": d, "conversation_id": conversation_id})
         except Exception as e:
             stats = snapshot()
             logger.warning("qa stream failed request_id=%s timing=%s", stats["request_id"], stats)
-            yield sse({"err": f"LLM 调用失败：{e}", "timing": stats})
+            yield sse({"err": f"LLM 调用失败：{e}", "timing": stats, "conversation_id": conversation_id})
             return
         answer = _sanitize_qa_reply("".join(pieces))
         if not answer:
             stats = snapshot()
             logger.warning("qa stream empty request_id=%s timing=%s", stats["request_id"], stats)
-            yield sse({"err": "模型没有生成有效回答，请重试一次。", "timing": stats})
+            yield sse({"err": "模型没有生成有效回答，请重试一次。", "timing": stats, "conversation_id": conversation_id})
             return
+        with _qa_store_lock:
+            saved = _qa_read(conversation_id)
+            saved["messages"].append({
+                "role": "assistant",
+                "content": answer,
+                "sources": _qa_sources(items),
+            })
+            saved["updated_at"] = _qa_now()
+            _qa_write(saved)
         stats = snapshot()
         logger.info("qa stream done request_id=%s timing=%s", stats["request_id"], stats)
-        yield sse({"done": True, "text": answer, "sources": _qa_sources(items), "timing": stats})
+        yield sse({"done": True, "text": answer, "sources": _qa_sources(items), "timing": stats, "conversation_id": conversation_id})
 
     return StreamingResponse(
         gen(),

@@ -45,7 +45,7 @@ OPENAI_BASE_URL=                # OpenAI 走第三方网关/中转站时填（�
 5. 前端按约 32ms 批量刷新流式文本，避免长回答时逐 token 触发布局抖动；后端在完成事件中附带 `ttft_ms`、`total_ms`、提供商和 fallback 状态，便于判断慢在首字还是生成过程。
 6. 不创建模拟面试 session，也不会影响正在进行的模拟面试。
 
-回答会明确区分本地资料和通用技术补充；没有命中本地资料时不会伪造题目、公司案例、日期、指标或来源。问答接口为 `POST /api/qa/ask/stream`，请求体包含 `question` 和可选的 `history`。流式协议保持向后兼容：`d` 为增量、`done` 为最终文本，`err` 为错误；`done.timing` 是可选性能诊断字段。
+回答会明确区分本地资料和通用技术补充；没有命中本地资料时不会伪造题目、公司案例、日期、指标或来源。问答会话文件保存在可写数据目录的 `qa-conversations/` 下（开发模式为项目 `DATA_DIR`，Electron 为用户数据目录），每个会话一个 JSON 文件。问答接口为 `POST /api/qa/ask/stream`，请求体包含 `question`、可选的 `conversation_id` 和兼容用 `history`；会话管理接口为 `GET/POST /api/qa/conversations`、`GET/DELETE /api/qa/conversations/{id}`。流式协议保持向后兼容：`d` 为增量、`done` 为最终文本，`err` 为错误；`done.timing` 是可选性能诊断字段。
 
 知识库「每日更新」的联网搜索限定在中文平台（知乎、牛客网、小红书、V2EX、掘金、CSDN、微信公众号、量子位等），域名白名单在 `backend/kb.py` 的 `SEARCH_ALLOWED_DOMAINS`；国外站点的清单留在同文件的 `SEARCH_DOMAINS_INTL` 里，想开就并进去。
 
