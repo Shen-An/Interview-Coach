@@ -149,6 +149,9 @@ def _stream_observer(kind: str, started_at: float | None = None):
         "total_ms": 0,
         "provider": "",
         "fallback": False,
+        "finish_reason": "",
+        "truncated": False,
+        "continuations": 0,
     }
 
     def observe(event: str, data: dict):
@@ -162,6 +165,9 @@ def _stream_observer(kind: str, started_at: float | None = None):
             timing["fallback"] = True
         elif event == "provider_done":
             timing["llm_ms"] = max(0, now_ms - timing.get("llm_start_ms", now_ms))
+        elif event == "finish":
+            timing["finish_reason"] = str(data.get("finish_reason") or "unknown")
+            timing["truncated"] = bool(data.get("truncated"))
         elif event == "provider_error" and data.get("emitted"):
             timing["llm_ms"] = max(0, now_ms - timing.get("llm_start_ms", now_ms))
 
@@ -670,19 +676,47 @@ def qa_ask_stream(req: AskReq):
 
     def gen():
         pieces = []
-        try:
-            for d in llm.chat_stream(
-                system, context_messages, max_tokens=_env_int("QA_MAX_OUTPUT_TOKENS", 3200, 800, 8000),
-                fast=False, cache_last=False, on_event=observe,
-            ):
-                pieces.append(d)
-                yield sse({"d": d, "conversation_id": conversation_id})
-        except Exception as e:
-            stats = snapshot()
-            logger.warning("qa stream failed request_id=%s timing=%s", stats["request_id"], stats)
-            yield sse({"err": f"LLM 调用失败：{e}", "timing": stats, "conversation_id": conversation_id})
-            return
+        max_tokens = _env_int("QA_MAX_OUTPUT_TOKENS", 3200, 800, 8000)
+        base_context_messages = list(context_messages)
+        continuation_round = 0
+        # 只有供应商明确返回“达到输出上限”时才续写，避免把半句答案直接落盘。
+        # 续写控制消息只存在本次请求内，不会污染持久化会话。
+        while True:
+            try:
+                request_messages = base_context_messages if continuation_round == 0 else (
+                    base_context_messages + [
+                        {"role": "assistant", "content": "".join(pieces)[-24000:]},
+                        {
+                            "role": "user",
+                            "content": (
+                                "请从你上一条回答被截断的位置继续写完。只输出尚未完成的后续内容，"
+                                "不要重复已经写过的标题、段落或结论；如果已经完整结束，只回复“已完成”。"
+                            ),
+                        },
+                    ]
+                )
+                for d in llm.chat_stream(
+                    system, request_messages, max_tokens=max_tokens,
+                    fast=False, cache_last=False, on_event=observe,
+                ):
+                    pieces.append(d)
+                    yield sse({"d": d, "conversation_id": conversation_id})
+            except Exception as e:
+                stats = snapshot()
+                logger.warning("qa stream failed request_id=%s timing=%s", stats["request_id"], stats)
+                yield sse({"err": f"LLM 调用失败：{e}", "timing": stats, "conversation_id": conversation_id})
+                return
+
+            if timing.get("truncated") and continuation_round < 2:
+                continuation_round += 1
+                timing["continuations"] = continuation_round
+                continue
+            break
+
         answer = _sanitize_qa_reply("".join(pieces))
+        # 续写模型若按控制提示只返回“已完成”，它不是答案正文。
+        if continuation_round:
+            answer = re.sub(r"已完成[。.!！]?\s*$", "", answer).strip()
         if not answer:
             stats = snapshot()
             logger.warning("qa stream empty request_id=%s timing=%s", stats["request_id"], stats)
@@ -699,7 +733,14 @@ def qa_ask_stream(req: AskReq):
             _qa_write(saved)
         stats = snapshot()
         logger.info("qa stream done request_id=%s timing=%s", stats["request_id"], stats)
-        yield sse({"done": True, "text": answer, "sources": _qa_sources(items), "timing": stats, "conversation_id": conversation_id})
+        yield sse({
+            "done": True,
+            "text": answer,
+            "sources": _qa_sources(items),
+            "timing": stats,
+            "truncated": bool(stats.get("truncated")),
+            "conversation_id": conversation_id,
+        })
 
     return StreamingResponse(
         gen(),

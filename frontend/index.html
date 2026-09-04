@@ -305,7 +305,7 @@
                         @keydown.ctrl.enter.prevent="askQuestion"></el-input>
               <div class="qa-composer-foot">
                 <span v-if="qaBusy" class="qa-status" :class="qaStage">{{ qaStage === 'waiting' ? '已发送，等待模型首段…' : '正在生成回答…' }}</span>
-                <span v-else-if="qaStage === 'done' && qaTiming" class="qa-status done">回答完成 · {{ timingLabel(qaTiming) }}</span>
+                <span v-else-if="qaStage === 'done' && qaTiming" class="qa-status" :class="{ truncated: qaTiming.truncated }">{{ qaTiming.truncated ? '已续写，仍达到长度上限' : '回答完成' }} · {{ timingLabel(qaTiming) }}</span>
                 <span v-else class="dim small">Ctrl + Enter 发送 · 支持继续追问</span>
                 <el-button type="primary" class="qa-send-btn" :loading="qaBusy"
                            :disabled="!qaDraft.trim() || qaBusy || qaSwitching || !cfg.ready" @click="askQuestion">

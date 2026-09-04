@@ -471,6 +471,7 @@ const app = createApp({
               else if (ev.done) {
                 finalText = ev.text;
                 holder.sources = ev.sources || [];
+                holder.truncated = Boolean(ev.truncated || (ev.timing && ev.timing.truncated));
                 this.qaTiming = ev.timing || null;
               }
             }

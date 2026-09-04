@@ -348,7 +348,15 @@ class LLMClient:
                             emitted = True
                             yield t
                     final = stream.get_final_message()
-                if final.stop_reason == "refusal" and not any(
+                raw_stop_reason = getattr(final, "stop_reason", None)
+                stop_reason = raw_stop_reason or "unknown"
+                self._notify(
+                    on_event,
+                    "finish",
+                    finish_reason=stop_reason,
+                    truncated=raw_stop_reason in ("max_tokens", None),
+                )
+                if stop_reason == "refusal" and not any(
                     b.type == "text" and b.text for b in final.content
                 ):
                     yield "（面试官暂时无法回应这个话题，换个问题继续。）"
@@ -377,6 +385,7 @@ class LLMClient:
         instructions = f"{system}\n\n{system_tail}" if system_tail else system
 
         def once(low_effort: bool):
+            final_response = None
             with client.responses.stream(
                 model=model,
                 instructions=instructions,
@@ -385,11 +394,32 @@ class LLMClient:
                 **({"reasoning": {"effort": "low"}} if low_effort else {}),
             ) as stream:
                 for event in stream:
+                    event_type = getattr(event, "type", "")
                     # 只放行正文增量——reasoning 等其它事件流不进候选人耳朵
-                    if getattr(event, "type", "") == "response.output_text.delta":
+                    if event_type == "response.output_text.delta":
                         d = getattr(event, "delta", "") or ""
                         if d:
                             yield d
+                    elif event_type == "response.completed":
+                        final_response = getattr(event, "response", None)
+                if final_response is None:
+                    try:
+                        final_response = stream.get_final_response()
+                    except Exception:
+                        pass
+            # Responses API 在 completed 事件中才给出是否撞到输出上限。
+            incomplete = getattr(final_response, "incomplete_details", None)
+            incomplete_reason = getattr(incomplete, "reason", None) if incomplete else None
+            status = getattr(final_response, "status", None) if final_response else None
+            finish_reason = incomplete_reason or ("stop" if status == "completed" else status or "unknown")
+            self._notify(
+                on_event,
+                "finish",
+                finish_reason=finish_reason,
+                truncated=incomplete_reason in ("max_output_tokens", "length")
+                or status == "incomplete"
+                or final_response is None,
+            )
 
         emitted = False
         try:
@@ -423,11 +453,21 @@ class LLMClient:
             extra["reasoning_effort"] = "low"
 
         def gen(**kw):
+            finish_reason = None
             for chunk in client.chat.completions.create(model=model, messages=msgs, stream=True, **extra, **kw):
                 if chunk.choices:
-                    piece = chunk.choices[0].delta.content
+                    choice = chunk.choices[0]
+                    if getattr(choice, "finish_reason", None):
+                        finish_reason = choice.finish_reason
+                    piece = choice.delta.content
                     if piece:
                         yield piece
+            self._notify(
+                on_event,
+                "finish",
+                finish_reason=finish_reason or "unknown",
+                truncated=finish_reason in ("length", "max_tokens") or finish_reason is None,
+            )
 
         try:
             yield from gen(max_completion_tokens=max_tokens)

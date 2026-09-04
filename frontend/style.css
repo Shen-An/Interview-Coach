@@ -543,7 +543,13 @@ html.dark .pg .el-divider--horizontal, html.light .pg .el-divider--horizontal { 
 /* ============================================================
    独立面试问答
    ============================================================ */
-.qa-page { gap: 18px; }
+.qa-page {
+  gap: 18px;
+  /* QA 是工作区，不应继承通用页面 1080px 舞台宽度；宽屏上否则两侧会出现大块空白。 */
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
 .qa-workspace { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 16px; min-height: 0; align-items: start; }
 .qa-main { min-width: 0; display: flex; flex-direction: column; gap: 18px; }
 .qa-conversations { padding: 16px 12px 10px; position: sticky; top: 0; min-height: 280px; }
@@ -585,6 +591,7 @@ html.light .qa-composer { background: #fff; }
 .qa-send-btn { min-width: 116px; }
 .qa-status, .generation-flag { color: var(--signal); font-size: .75rem; }
 .qa-status.waiting, .generation-flag { color: var(--text-faint); }
+.qa-status.truncated { color: var(--warn); }
 .qa-suggestions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .qa-suggestion {
   border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--text-dim);
@@ -870,6 +877,9 @@ html.light ::-webkit-scrollbar-thumb:hover { background: #9BAFB6; background-cli
   .stat-strip { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 860px) {
+  .qa-workspace { grid-template-columns: 1fr; }
+  .qa-conversations { position: static; min-height: 0; }
+
   /* 侧栏收成图标轨 */
   .side { width: 64px; padding: 14px 8px 12px; align-items: center; }
   .brand-text, .nav-label, .nav-badge, .side-model-name { display: none; }
