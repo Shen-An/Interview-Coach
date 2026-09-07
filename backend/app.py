@@ -84,14 +84,14 @@ _sessions: dict[str, dict] = {}
 # 开场白按轮次分开写，承诺的环节必须和 prompts.ROUND_FLOW 的阶段一致，不许开空头支票
 OPENINGS = {
     ("一面", False): (
-        "你好，我是今天的一面面试官，负责 Agent 平台这块。这轮大概四五十分钟：先聊你的项目，"
-        "然后过一些基础，最后有一道手撕代码——到时候直接在输入框把代码打出来发我就行。"
-        "先自我介绍吧，三分钟以内，介绍完告诉我你最想让我深挖的项目是哪个。"
+        "你好，我是今天的一面面试官，负责 Agent 平台这块。这轮大概四五十分钟：先做概念热身和场景推演，"
+        "中间再聊你的项目，最后有一道手撕代码——到时候直接在输入框把代码打出来发我就行。"
+        "先自我介绍吧，三分钟以内，先说你做过什么、主要技术方向是什么。"
     ),
     ("一面", True): (
-        "你好，我是今天的一面面试官，负责 Agent 平台这块。这轮大概四五十分钟：先按你的简历聊项目，"
-        "然后过一些基础，最后有一道手撕代码，到时候在输入框打出来发我就行。"
-        "简历我看过了，自我介绍简短点，两分钟，重点讲你为什么选 Agent 方向——简历上写的不用复述，我等下挨个问。"
+        "你好，我是今天的一面面试官，负责 Agent 平台这块。这轮大概四五十分钟：先做概念热身和场景推演，"
+        "中间再聊简历项目，最后有一道手撕代码，到时候在输入框打出来发我就行。"
+        "简历我看过了，自我介绍简短点，两分钟，重点讲你为什么选 Agent 方向和做过的技术方向。"
     ),
     ("二面", False): (
         "你好，我是二面面试官，Agent 平台这边的负责人。这轮主要聊你项目里的技术判断，"
@@ -108,6 +108,27 @@ OPENINGS = {
 
 def pick_opening(round_name: str, with_resume: bool) -> str:
     return OPENINGS.get((round_name, with_resume)) or OPENINGS[("一面", with_resume)]
+
+
+def _interview_prompt_parts(session: dict, recent_text: str) -> tuple[str, str]:
+    """统一构造普通与 SSE 面试请求的动态提示，避免两条链路阶段漂移。"""
+    round_name = session["round"]
+    style = session["style"]
+    resume = session.get("resume", "")
+    level = session.get("level", "应届校招")
+    system = prompts.build_interviewer_system(round_name, style, resume, level)
+    # assistant 消息中已经包含开场白；这个 qnum 表示本次即将生成的面试官回合。
+    qnum = sum(1 for message in session["messages"] if message["role"] == "assistant") + 1
+    parts = [
+        prompts.stage_hint(round_name, qnum),
+        prompts.project_rotation_hint(round_name, qnum, resume),
+        prompts.turn_wiki(
+            round_name, style, resume, level, recent_text,
+            prompts.interview_material_kinds(round_name, qnum),
+        ),
+    ]
+    tail = "\n\n".join(part.strip() for part in parts if part and part.strip())
+    return system, tail
 
 
 class StartReq(BaseModel):
@@ -366,13 +387,7 @@ def turn(sid: str, req: TurnReq):
     if not text:
         raise HTTPException(400, "空输入")
     s["messages"].append({"role": "user", "content": text})
-    system = prompts.build_interviewer_system(s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"))
-    # 阶段进度按面试官已发言次数生成，走动态尾块注入——大头 system 保持字节稳定吃前缀缓存
-    qnum = sum(1 for m in s["messages"] if m["role"] == "assistant")
-    tail = prompts.stage_hint(s["round"], qnum) + prompts.project_rotation_hint(
-        s["round"], qnum, s.get("resume", "")
-    ) + prompts.turn_wiki(
-        s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"), text)
+    system, tail = _interview_prompt_parts(s, text)
     # 一轮面试官的话按提示词要求不超过 120 字，代码题题面也就几百字。给 8192 等于
     # 递给模型一根足够长的绳子去自演整场对话——上限收紧本身就是最有效的一道闸。
     # fast：面试轮关思考——120 字的回话不值得先想半分钟，候选人在干等；
@@ -407,12 +422,7 @@ def turn_stream(sid: str, req: TurnReq):
     if not text:
         raise HTTPException(400, "空输入")
     s["messages"].append({"role": "user", "content": text})
-    system = prompts.build_interviewer_system(s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"))
-    qnum = sum(1 for m in s["messages"] if m["role"] == "assistant")
-    tail = prompts.stage_hint(s["round"], qnum) + prompts.project_rotation_hint(
-        s["round"], qnum, s.get("resume", "")
-    ) + prompts.turn_wiki(
-        s["round"], s["style"], s.get("resume", ""), s.get("level", "应届校招"), text)
+    system, tail = _interview_prompt_parts(s, text)
 
     def sse(obj: dict) -> str:
         return "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"

@@ -554,7 +554,7 @@ def _solid(hits: set, df: dict, cut: int) -> bool:
 
 
 def select_turn(store: dict, *, recent="", used_ids=(), style="", level="应届校招",
-                k=TURN_K) -> list:
+                kinds=None, k=TURN_K) -> list:
     """每轮的追加：拿候选人刚说的那段话当查询，从没进 system 的条目里挑几条。
 
     两道门槛，缺一不可：命中得够硬（见 _solid），而且得有全库最佳命中的一半以上。
@@ -570,7 +570,9 @@ def select_turn(store: dict, *, recent="", used_ids=(), style="", level="应届�
     idf, df, cut = store["idf"], store["df"], store["df_cut"]
     # 门槛比的是全库最佳命中，不是未选中里的最佳：否则最相关的几条进了 system 之后，
     # 剩下的一批矮子里拔将军，每轮都能凑出三条来。
-    best = max((_lex(it, q, idf) for it in store["items"]), default=0.0)
+    allowed = None if kinds is None else set(kinds)
+    best = max((_lex(it, q, idf) for it in store["items"]
+                if allowed is None or it["kind"] in allowed), default=0.0)
     if best <= 0:
         return []
     aliases = STYLE_ALIASES.get(style, ())
@@ -580,6 +582,8 @@ def select_turn(store: dict, *, recent="", used_ids=(), style="", level="应届�
 
     hits = []                       # 命中够硬的，含已注入过的：它们是走链的起点
     for it in store["items"]:
+        if allowed is not None and it["kind"] not in allowed:
+            continue
         lex = _lex(it, q, idf)
         if lex < TURN_MIN_REL * best or not _solid(it["terms"] & q, df, cut):
             continue
@@ -596,7 +600,7 @@ def select_turn(store: dict, *, recent="", used_ids=(), style="", level="应届�
         for _l, anchor in hits[:LINK_HOPS]:
             for rid in anchor.get("related", ()):
                 nb = store["by_id"].get(rid)
-                if nb is None or rid in seen:
+                if nb is None or (allowed is not None and nb["kind"] not in allowed) or rid in seen:
                     continue
                 seen.add(rid)
                 hop.append((LINK_DISCOUNT * sc(nb), nb))
@@ -650,8 +654,9 @@ def render_bank(store: dict, selected: dict, style: str = "") -> str:
     row = wiki.style_row(pages, style)
     if row:
         out += ["", f"本场压力风格对应的出题侧重：{row}"]
-    out += ["", f"下面 {len(picks)} 条是按他这份简历和本轮考点层次挑出来的，问之前先改写成"
-                "贴他项目的版本。要换目录里别的方向直接问，题库里有，别为了用这几条硬转。"]
+    out += ["", f"下面 {len(picks)} 条是按这轮考点层次挑出来的素材。按题型使用：项目题才贴他的简历；"
+                "概念题独立问机制、原理和边界；场景题必须补充简历之外的背景、量级和约束。"
+                "要换目录里别的方向直接问，别为了用这几条硬转。"]
     groups: dict[str, list] = {}
     for it in picks:
         crumb = f"{it['section']}／{it['sub']}" if it["sub"] else it["section"]
