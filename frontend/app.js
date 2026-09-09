@@ -40,8 +40,13 @@ const app = createApp({
       testOk: { llm: false, stt: false, tts: false },
       resume: { loaded: false },
       uploading: false,
-      kb: { files: [], latest_update: "" },
+      kb: { files: [], latest_update: "", pipeline: {} },
       kbBusy: false,
+      kbItems: [],
+      kbItemsTotal: 0,
+      kbItemsLoading: false,
+      kbCatalog: { stats: {}, facets: { kinds: [], layers: [], companies: [] } },
+      kbFilter: { query: "", kind: "", layer: "", company: "", space: "", days: 0 },
       history: [],
       showHistory: false,
       historyTitle: "",
@@ -116,8 +121,7 @@ const app = createApp({
 
   computed: {
     kbStale() {
-      const today = new Date().toISOString().slice(0, 10);
-      return !(this.kb.latest_update || "").includes(today);
+      return KbUi.isStale(this.kb.latest_update);
     },
     questionCount() {
       return this.messages.filter((m) => m.role === "assistant").length;
@@ -140,6 +144,31 @@ const app = createApp({
     kbChars() {
       const n = (this.kb.files || []).reduce((s, f) => s + (f.chars || 0), 0);
       return n >= 10000 ? (n / 10000).toFixed(1) + " 万" : String(n);
+    },
+    kbFilteredItems() {
+      return KbUi.filterItems(this.kbItems, this.kbFilter);
+    },
+    kbKindLabel() {
+      const labels = {
+        questions: "面试题",
+        scenarios: "场景题",
+        events: "行业事件",
+        coding: "手撕题",
+      };
+      return (kind) => labels[kind] || kind || "未分类";
+    },
+    kbSpaceLabel() {
+      return (space) => space === "intel" ? "日更情报" : "内置题库";
+    },
+    kbLayerLabel() {
+      return (layer) => layer ? `L${layer}` : "未分层";
+    },
+    kbAgeLabel() {
+      return (day) => {
+        const age = KbUi.daysSince(day);
+        if (age == null) return "沉淀题库";
+        return age === 0 ? "今天" : `${age}天前`;
+      };
     },
     avgScore() {
       const scored = this.history.filter((h) => h.score).slice(0, 5);
@@ -248,6 +277,7 @@ const app = createApp({
     this.loadHistory();
     this.loadQaConversations();
     this.loadIntelLatest();
+    this.loadKbItems();
     // hash 路由：前进后退/刷新都能落回原页面
     if (!location.hash) history.replaceState(null, "", "#/" + this.page);
     window.addEventListener("hashchange", () => {
@@ -736,6 +766,7 @@ const app = createApp({
         if (!r.ok) throw new Error((await r.json()).detail);
         const d = await r.json();
         this.kb = d.kb;
+        await this.loadKbItems();
         this.showIntelSummary(d);
         if (d.no_news) ElMessage.info("今日无新增面经，行业无重大变化");
         else ElMessage.success("情报库已更新：" + d.section);
@@ -751,6 +782,25 @@ const app = createApp({
         this.kbBusy = false;
       }
     },
+    async loadKbItems() {
+      this.kbItemsLoading = true;
+      try {
+        const r = await fetch("/api/kb/items?page_size=500");
+        if (!r.ok) throw new Error("无法读取知识库条目");
+        const d = await r.json();
+        this.kbItems = d.items || [];
+        this.kbItemsTotal = d.total || 0;
+        this.kbCatalog = d;
+      } catch (e) {
+        this.kbItems = [];
+        this.kbItemsTotal = 0;
+        this.kbCatalog = { stats: {}, facets: { kinds: [], layers: [], companies: [] } };
+        console.warn("knowledge catalog unavailable", e);
+      } finally {
+        this.kbItemsLoading = false;
+      }
+    },
+
     showIntelSummary(d) {
       this.intelTitle = d.section || "增量情报";
       this.intelHtml = marked.parse(d.summary || "（这次没有产出新内容）");
@@ -780,6 +830,7 @@ const app = createApp({
         if (!r.ok) throw new Error((await r.json()).detail);
         const d = await r.json();
         this.kb = d.kb;
+        await this.loadKbItems();
         this.showIntelSummary(d);
         ElMessage.success("已蒸馏进情报库：" + d.section);
       } catch (e) {

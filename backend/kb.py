@@ -200,10 +200,30 @@ def extract_json(text: str) -> dict:
 #   ## <小节标题>            ← 按 ^##  切节
 #   （空行）
 #   主题：关键词 / 关键词      ← 必须是正文第一个非空行，目录靠它取摘要
+_RANGE_RE = re.compile(
+    r"(?<![\w.])(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)(?=\s*(?:倍|ms|s|秒|毫秒|万|亿|%|次|个|条|人|GB|MB|元|[)\]\uFF09\u3011,\uFF0C;\uFF1B]))"
+)
+
+
+def normalize_rendered_text(value) -> str:
+    """Conservatively tidy text emitted into Markdown views.
+
+    This intentionally runs on rendered strings only. It never changes raw notes or
+    the structured compiled JSON, and it avoids broad punctuation rewrites that could
+    alter code, URLs, model names, or factual content.
+    """
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    text = _RANGE_RE.sub(r"\1~\2", text)
+    text = re.sub(r"([\uFF08\u3010])\s+", r"\1", text)
+    text = re.sub(r"\s+([\uFF09\u3011])", r"\1", text)
+    text = re.sub(r"\s+([\uFF0C\u3002\uFF1B\uFF1A\uFF01\uFF1F\u3001])", r"\1", text)
+    return text
+
+
 def _flat(s) -> str:
     """压成单行并剥掉行首的 Markdown 结构符。正文里绝不能出现行首的 `## `，
     否则会被读取侧当成新的一节切开——把换行全压成空格就永远不会在行首。"""
-    t = re.sub(r"\s+", " ", str(s or "")).strip()
+    t = normalize_rendered_text(s)
     return t.lstrip("#-*>· ").strip()
 
 
@@ -218,21 +238,26 @@ def _fmt_question(x: dict) -> str:
 
 
 def _fmt_scenario(x: dict) -> str:
-    bits = [f"背景：{_flat(x.get('background'))}"]
-    if _flat(x.get("scale")):
-        bits.append(f"量级：{_flat(x.get('scale'))}")
-    bits.append(f"考察：{_flat(x.get('focus'))}")
-    return f"{_flat(x.get('title'))}（{'；'.join(bits)}）"
+    bits = []
+    for key, label in (("background", "背景"), ("scale", "量级"), ("focus", "考察")):
+        value = _flat(x.get(key))
+        if value:
+            bits.append(f"{label}：{value}")
+    title = _flat(x.get("title")) or "未命名场景"
+    return f"{title}（{'；'.join(bits)}）" if bits else title
 
 
 def _fmt_event(x: dict) -> str:
-    return f"{_flat(x.get('event'))} —— 可以这么问：{_flat(x.get('ask'))}"
+    event = _flat(x.get("event")) or "未命名事件"
+    ask = _flat(x.get("ask"))
+    return f"{event} —— 可以这么问：{ask}" if ask else event
 
 
 def _fmt_coding(x: dict) -> str:
     diff = _flat(x.get("difficulty"))
-    head = f"{_flat(x.get('title'))}（{diff}）" if diff else _flat(x.get("title"))
-    return f"{head} —— 考察：{_flat(x.get('focus'))}"
+    head = f"{_flat(x.get('title'))}（{diff}）" if diff else (_flat(x.get("title")) or "未命名手撕题")
+    focus = _flat(x.get("focus"))
+    return f"{head} —— 考察：{focus}" if focus else head
 
 
 CATEGORIES = (

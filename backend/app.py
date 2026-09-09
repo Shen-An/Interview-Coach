@@ -872,6 +872,17 @@ def kb_state():
     return kb_mgr.state()
 
 
+@app.get("/api/kb/items")
+def kb_items(q: str = "", kind: str = "", layer: str = "", company: str = "",
+             space: str = "", days: int = 0, page: int = 1, page_size: int = 50):
+    """Unified, read-only Wiki catalog for the human-facing browser."""
+    store = retrieval.load(kb_mgr.compiled_dir, kb_mgr.data_kb)
+    return retrieval.catalog(
+        store, query=q, kind=kind, layer=layer, company=company, space=space,
+        days=days, page=page, page_size=page_size,
+    )
+
+
 @app.get("/api/kb/latest")
 def kb_latest():
     """最新一节增量情报，前端「查看情报」用。"""

@@ -369,6 +369,110 @@ def _lex(item: dict, q_terms: set, idf: dict) -> float:
     return sum(idf.get(t, 1.0) for t in hit) / math.sqrt(len(item["terms"]) + 8)
 
 
+_CATALOG_FIELDS = (
+    "id", "space", "kind", "layer", "day", "line", "company", "freq",
+    "hot", "source", "source_urls", "page", "section", "sub",
+)
+
+
+def public_item(item: dict) -> dict:
+    """Return only fields needed by the read-only Wiki browser.
+
+    Retrieval internals (terms, idf neighbours and scoring hints) stay private so
+    the browsing API remains stable even when ranking implementation changes.
+    """
+    out = {key: item.get(key, "") for key in _CATALOG_FIELDS}
+    out["source_urls"] = [
+        {"url": str(src.get("url") or ""), "title": str(src.get("title") or "")}
+        for src in (item.get("source_urls") or [])
+        if isinstance(src, dict) and src.get("url")
+    ]
+    out["frequency"] = out.pop("freq")
+    out["title"] = str(item.get("line") or "").strip()
+    return out
+
+
+def catalog(store: dict, *, query: str = "", kind: str = "", layer: str = "",
+            company: str = "", space: str = "", days: int = 0, page: int = 1,
+            page_size: int = 50, ref_day: str | None = None) -> dict:
+    """Filter and paginate the unified Wiki item store for human browsing."""
+    query = str(query or "").strip().casefold()
+    kind = str(kind or "").strip()
+    layer = str(layer or "").strip()
+    company = str(company or "").strip().casefold()
+    space = str(space or "").strip()
+    try:
+        days = max(0, int(days or 0))
+    except (TypeError, ValueError):
+        days = 0
+    ref_day = ref_day or date.today().isoformat()
+
+    def matches(item: dict) -> bool:
+        if kind and item.get("kind") != kind:
+            return False
+        if layer and item.get("layer") != layer:
+            return False
+        if space and item.get("space") != space:
+            return False
+        if company and company not in str(item.get("company") or "").casefold():
+            return False
+        if query:
+            haystack = " ".join(str(item.get(key) or "") for key in (
+                "line", "source", "company", "page", "section", "sub", "day"))
+            if query not in haystack.casefold():
+                return False
+        if days:
+            if not item.get("day") or _age_days(str(item.get("day")), ref_day) > days:
+                return False
+        return True
+
+    selected = [item for item in store.get("items", []) if matches(item)]
+    def sort_day(item: dict) -> int:
+        try:
+            return date.fromisoformat(str(item.get("day") or "")).toordinal()
+        except ValueError:
+            return -1
+
+    selected.sort(key=lambda item: (
+        -sort_day(item),
+        0 if item.get("space") == "intel" else 1,
+        str(item.get("id") or ""),
+    ))
+    total = len(selected)
+    try:
+        page = max(1, int(page or 1))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        page_size = min(500, max(1, int(page_size or 50)))
+    except (TypeError, ValueError):
+        page_size = 50
+    start = (page - 1) * page_size
+    items = [public_item(item) for item in selected[start:start + page_size]]
+
+    all_items = store.get("items", [])
+    kind_counts = {key: sum(1 for item in all_items if item.get("kind") == key)
+                   for key, _label, _fmt in kb.CATEGORIES}
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": (total + page_size - 1) // page_size,
+        "stats": {
+            "total": len(all_items),
+            "intel": sum(1 for item in all_items if item.get("space") == "intel"),
+            "bank": sum(1 for item in all_items if item.get("space") == "bank"),
+            "kinds": kind_counts,
+        },
+        "facets": {
+            "kinds": sorted({str(item.get("kind") or "") for item in all_items if item.get("kind")}),
+            "layers": sorted({str(item.get("layer") or "") for item in all_items if item.get("layer")}),
+            "companies": sorted({str(item.get("company") or "") for item in all_items if item.get("company")}),
+        },
+    }
+
+
 def score(item: dict, q_terms: set, store: dict, *, aliases=(), level="应届校招",
           layer_fit=None) -> float:
     """一条条目对这场面试的相关度。字面重合是主项，其余是修正项：目标公司的题、

@@ -363,7 +363,7 @@ html.light .el-button--primary {
 .page-note { margin-top: 4px; font-size: .75rem; color: var(--text-faint); }
 .page-acts { display: flex; align-items: center; gap: 8px; }
 
-.stat-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.stat-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .stat-tile {
   display: flex; flex-direction: column; gap: 3px;
   background: var(--ink-900); border: 1px solid var(--line-soft);
@@ -382,6 +382,29 @@ html.light .el-button--primary {
 /* 情报库页 */
 .rec-filter { width: min(340px, 100%); }
 .kb-files { display: flex; flex-direction: column; }
+.kb-pipeline {
+  display: flex; flex-wrap: wrap; gap: 7px 16px; margin: 2px 0 14px;
+  color: var(--text-faint); font-size: .75rem;
+}
+.kb-pipeline-stat b { color: var(--text); font-family: var(--font-mono); font-weight: 600; }
+.kb-browser-tools {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 10px; margin: 0 -2px 10px; border-radius: var(--r-md);
+  background: var(--ink-950); border: 1px solid var(--line-soft);
+}
+.kb-browser-tools .el-select { width: 132px; }
+.kb-browser-tools .kb-search { width: min(360px, 100%); }
+.kb-item-list { display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+.kb-item { padding: 10px 2px 11px; border-top: 1px solid var(--line-soft); }
+.kb-item:first-child { border-top: 0; }
+.kb-item-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.kb-item-age { margin-left: auto; color: var(--text-faint); font-size: .6875rem; }
+.kb-hot { color: var(--warn); font-size: .6875rem; }
+.kb-item-line { margin-top: 6px; color: var(--text); font-size: .8125rem; line-height: 1.55; }
+.kb-item-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; color: var(--text-faint); font-size: .6875rem; line-height: 1.45; }
+.kb-item-meta a { color: var(--signal-hi); text-decoration: none; }
+.kb-item-meta a:hover { text-decoration: underline; }
+
 .kb-file {
   display: flex; align-items: center; gap: 10px;
   padding: 9px 2px; border-top: 1px solid var(--line-soft);
@@ -928,3 +951,12 @@ html.light ::-webkit-scrollbar-thumb:hover { background: #9BAFB6; background-cli
 .mic-pick { display: flex; gap: 8px; width: 100%; }
 .mic-pick .mic-select { flex: 1; min-width: 0; }
 .mic-test-msg { margin-top: -6px; }
+
+
+@media (max-width: 900px) {
+  .stat-strip { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .stat-strip { grid-template-columns: 1fr; }
+  .kb-browser-tools .el-select, .kb-browser-tools .kb-search { width: 100%; }
+}

@@ -466,9 +466,14 @@
           <span class="stat-sub">人格卡 · 题库 · 评分细则 · 日更</span>
         </div>
         <div class="stat-tile">
-          <span class="stat-label">总字数</span>
+          <span class="stat-label">知识库规模</span>
           <span class="stat-value mono">{{ kbChars }}</span>
-          <span class="stat-sub">全部随开场提示词喂给面试官</span>
+          <span class="stat-sub">按简历、轮次和风格检索，不会整库注入</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-label">结构化条目</span>
+          <span class="stat-value mono">{{ kbItemsTotal }}</span>
+          <span class="stat-sub">面试题 · 场景 · 事件 · 手撕</span>
         </div>
       </div>
 
@@ -498,6 +503,64 @@
         </template>
         <div v-else class="empty-inline">
           <p class="dim">情报库还没有增量内容。点右上角「联网搜今日面经」，面试官会检索今天的最新面经并蒸馏进题库。</p>
+        </div>
+      </section>
+
+      <!-- 统一条目浏览 -->
+      <section class="card">
+        <div class="card-head">
+          <span class="eyebrow">CATALOG</span>
+          <h2>知识库条目</h2>
+          <span class="card-note">只在面试时按相关性选取，不整库注入</span>
+        </div>
+        <div class="kb-pipeline">
+          <span class="kb-pipeline-stat"><b>{{ (kb.pipeline || {}).raw || 0 }}</b> raw 原文</span>
+          <span class="kb-pipeline-stat"><b>{{ (kb.pipeline || {}).compiled || 0 }}</b> compiled 产物</span>
+          <span class="kb-pipeline-stat"><b>{{ (kb.pipeline || {}).schema ? 1 : 0 }}</b> schema</span>
+          <span class="kb-pipeline-stat"><b>{{ ((kb.pipeline || {}).items || {}).questions || 0 }}</b> 题</span>
+          <span class="kb-pipeline-stat"><b>{{ ((kb.pipeline || {}).items || {}).scenarios || 0 }}</b> 场景</span>
+          <span class="kb-pipeline-stat"><b>{{ ((kb.pipeline || {}).items || {}).events || 0 }}</b> 事件</span>
+          <span class="kb-pipeline-stat"><b>{{ ((kb.pipeline || {}).items || {}).coding || 0 }}</b> 手撕</span>
+        </div>
+        <div class="kb-browser-tools">
+          <el-input v-model="kbFilter.query" clearable size="small" class="kb-search"
+                    placeholder="搜索题面、来源、公司或主题"></el-input>
+          <el-select v-model="kbFilter.kind" clearable size="small" placeholder="类型">
+            <el-option v-for="kind in kbCatalog.facets.kinds" :key="kind" :label="kbKindLabel(kind)" :value="kind"></el-option>
+          </el-select>
+          <el-select v-model="kbFilter.layer" clearable size="small" placeholder="层次">
+            <el-option v-for="layer in kbCatalog.facets.layers" :key="layer" :label="kbLayerLabel(layer)" :value="layer"></el-option>
+          </el-select>
+          <el-select v-model="kbFilter.company" clearable size="small" placeholder="公司 / 平台">
+            <el-option v-for="company in kbCatalog.facets.companies" :key="company" :label="company" :value="company"></el-option>
+          </el-select>
+          <el-select v-model="kbFilter.days" size="small" placeholder="时间">
+            <el-option label="全部时间" :value="0"></el-option>
+            <el-option label="最近 7 天" :value="7"></el-option>
+            <el-option label="最近 30 天" :value="30"></el-option>
+          </el-select>
+        </div>
+        <div v-loading="kbItemsLoading" class="kb-item-list">
+          <article v-for="item in kbFilteredItems" :key="item.id" class="kb-item">
+            <div class="kb-item-head">
+              <el-tag size="small" effect="plain">{{ kbKindLabel(item.kind) }}</el-tag>
+              <el-tag size="small" effect="plain" type="info">{{ kbSpaceLabel(item.space) }}</el-tag>
+              <el-tag v-if="item.layer" size="small" effect="plain" type="warning">{{ kbLayerLabel(item.layer) }}</el-tag>
+              <span v-if="item.hot" class="kb-hot">🔥 高频</span>
+              <span class="kb-item-age mono">{{ kbAgeLabel(item.day) }}</span>
+            </div>
+            <div class="kb-item-line">{{ item.line }}</div>
+            <div class="kb-item-meta">
+              <span>{{ item.source || item.page || '来源未标' }}</span>
+              <span v-if="item.company">{{ item.company }}</span>
+              <span v-if="item.frequency">{{ item.frequency }}</span>
+              <span v-if="item.day" class="mono">{{ item.day }}</span>
+              <template v-if="item.source_urls && item.source_urls.length">
+                <a v-for="src in item.source_urls.slice(0, 2)" :key="src.url" :href="src.url" target="_blank" rel="noreferrer">原文</a>
+              </template>
+            </div>
+          </article>
+          <p v-if="!kbItemsLoading && !kbFilteredItems.length" class="empty-inline dim">没有符合筛选条件的条目</p>
         </div>
       </section>
 
@@ -763,6 +826,7 @@
 <script src="/static/vendor/element-plus-locale-zhcn.min.js"></script>
 <script src="/static/vendor/element-plus-icons.iife.min.js"></script>
 <script src="/static/vendor/marked.min.js"></script>
+<script src="/static/kb-ui-utils.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
