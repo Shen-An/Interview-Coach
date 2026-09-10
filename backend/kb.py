@@ -17,8 +17,11 @@ schema 是重建时的验收标准。三者任一坏掉都能从上一层重新�
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
+import threading
+import uuid
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -320,6 +323,17 @@ class KBManager:
         self.data_kb = data_kb
         self._schema: dict | None = None
         self._compile_sys: str = ""
+        self._write_lock = threading.RLock()
+
+    @staticmethod
+    def _atomic_write_text(path: Path, text: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            tmp.write_text(text, encoding="utf-8")
+            os.replace(tmp, path)
+        finally:
+            tmp.unlink(missing_ok=True)
 
     # ---------------- 目录与播种 ----------------
     @property
@@ -394,8 +408,8 @@ class KBManager:
 
     def _write_compiled(self, slug: str, artifact: dict) -> Path:
         p = self._compiled_path(slug)
-        p.write_text(
-            json.dumps(artifact, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        self._atomic_write_text(
+            p, json.dumps(artifact, ensure_ascii=False, indent=2) + "\n"
         )
         return p
 
@@ -439,7 +453,7 @@ class KBManager:
             if len(merged) + len(sec) + 1 > MAX_UPDATES_CHARS:
                 break
             merged += "\n" + sec
-        (self.data_kb / UPDATES_NAME).write_text(merged, encoding="utf-8")
+        self._atomic_write_text(self.data_kb / UPDATES_NAME, merged)
         return len(merged)
 
     # ---------------- 编译（带校验与重试） ----------------
@@ -503,11 +517,14 @@ class KBManager:
     # ---------------- 入口一：导入日更文档 ----------------
     def import_daily(self, llm, filename: str, text: str) -> dict:
         """原文落盘 → 编译 → 校验 → 重建 UPDATES.md。同一个文件名重复导入覆盖旧产物。"""
+        with self._write_lock:
+            return self._import_daily(llm, filename, text)
+
+    def _import_daily(self, llm, filename: str, text: str) -> dict:
         slug = _slug(filename, "import")
         raw_name = f"{slug}.md"
         text = (text or "")[:MAX_RAW_CHARS]
-        self.raw_dir.mkdir(parents=True, exist_ok=True)
-        (self.raw_dir / raw_name).write_text(text, encoding="utf-8")
+        self._atomic_write_text(self.raw_dir / raw_name, text)
 
         now = datetime.now()
         meta = {
@@ -532,6 +549,10 @@ class KBManager:
     # ---------------- 入口二：联网检索当日情报 ----------------
     def daily_research(self, llm) -> dict:
         """采集（带搜索工具，贵）→ 笔记落盘 → 编译（便宜可重放）→ 校验 → 重建 UPDATES.md。"""
+        with self._write_lock:
+            return self._daily_research(llm)
+
+    def _daily_research(self, llm) -> dict:
         today = datetime.now().strftime("%Y-%m-%d")
         slug = f"research__{today}"
         raw_name = f"{slug}.md"
@@ -549,9 +570,8 @@ class KBManager:
         if not notes:
             raise ValueError("情报搜集返回为空，请稍后重试")
 
-        self.raw_dir.mkdir(parents=True, exist_ok=True)
-        (self.raw_dir / raw_name).write_text(
-            notes + _sources_appendix(res.sources or []), encoding="utf-8"
+        self._atomic_write_text(
+            self.raw_dir / raw_name, notes + _sources_appendix(res.sources or [])
         )
 
         no_news = "今日无新增" in notes and len(notes) < 200
@@ -627,6 +647,10 @@ class KBManager:
     def recompile(self, llm, slugs: list[str] | None = None) -> dict:
         """把 raw/ 里的原文按当前 schema 与编译提示词重跑一遍，逐份替换 compiled/，最后重建
         UPDATES.md。单份失败不影响其它份——失败清单照实返回，原文还在，随时能再来一次。"""
+        with self._write_lock:
+            return self._recompile(llm, slugs)
+
+    def _recompile(self, llm, slugs: list[str] | None = None) -> dict:
         targets = sorted(self.raw_dir.glob("*.md"))
         if slugs:
             want = set(slugs)

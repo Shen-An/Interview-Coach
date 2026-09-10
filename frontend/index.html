@@ -522,45 +522,66 @@
           <span class="kb-pipeline-stat"><b>{{ ((kb.pipeline || {}).items || {}).events || 0 }}</b> 事件</span>
           <span class="kb-pipeline-stat"><b>{{ ((kb.pipeline || {}).items || {}).coding || 0 }}</b> 手撕</span>
         </div>
-        <div class="kb-browser-tools">
+        <div class="kb-browser-tools" aria-label="知识库条目筛选">
           <el-input v-model="kbFilter.query" clearable size="small" class="kb-search"
-                    placeholder="搜索题面、来源、公司或主题"></el-input>
-          <el-select v-model="kbFilter.kind" clearable size="small" placeholder="类型">
+                    aria-label="搜索知识库条目" placeholder="搜索题面、来源、公司或主题"
+                    @input="onKbQueryInput" @clear="onKbQueryInput"></el-input>
+          <el-select v-model="kbFilter.kind" clearable size="small" aria-label="按条目类型筛选"
+                     placeholder="类型" @change="onKbFilterChange">
             <el-option v-for="kind in kbCatalog.facets.kinds" :key="kind" :label="kbKindLabel(kind)" :value="kind"></el-option>
           </el-select>
-          <el-select v-model="kbFilter.layer" clearable size="small" placeholder="层次">
+          <el-select v-model="kbFilter.layer" clearable size="small" aria-label="按知识层次筛选"
+                     placeholder="层次" @change="onKbFilterChange">
             <el-option v-for="layer in kbCatalog.facets.layers" :key="layer" :label="kbLayerLabel(layer)" :value="layer"></el-option>
           </el-select>
-          <el-select v-model="kbFilter.company" clearable size="small" placeholder="公司 / 平台">
+          <el-select v-model="kbFilter.space" clearable size="small" aria-label="按知识空间筛选"
+                     placeholder="知识空间" @change="onKbFilterChange">
+            <el-option v-for="space in kbCatalog.facets.spaces" :key="space" :label="kbSpaceLabel(space)" :value="space"></el-option>
+          </el-select>
+          <el-select v-model="kbFilter.company" clearable filterable size="small" aria-label="按公司或平台筛选"
+                     placeholder="公司 / 平台" @change="onKbFilterChange">
             <el-option v-for="company in kbCatalog.facets.companies" :key="company" :label="company" :value="company"></el-option>
           </el-select>
-          <el-select v-model="kbFilter.days" size="small" placeholder="时间">
+          <el-select v-model="kbFilter.days" size="small" aria-label="按资料时间筛选"
+                     placeholder="时间" @change="onKbFilterChange">
             <el-option label="全部时间" :value="0"></el-option>
             <el-option label="最近 7 天" :value="7"></el-option>
             <el-option label="最近 30 天" :value="30"></el-option>
           </el-select>
         </div>
-        <div v-loading="kbItemsLoading" class="kb-item-list">
+        <div v-if="kbCatalogState === 'loading'" class="kb-status" role="status">正在加载知识库条目…</div>
+        <div v-else-if="kbCatalogState === 'error'" class="kb-status kb-status-error" role="alert">
+          <span>{{ kbItemsError }}</span>
+          <el-button link size="small" aria-label="重试加载知识库条目" @click="loadKbItems()">重试</el-button>
+        </div>
+        <p v-else-if="kbCatalogState === 'empty'" class="kb-status dim">没有符合当前筛选条件的条目</p>
+        <div v-else class="kb-item-list">
           <article v-for="item in kbFilteredItems" :key="item.id" class="kb-item">
             <div class="kb-item-head">
               <el-tag size="small" effect="plain">{{ kbKindLabel(item.kind) }}</el-tag>
               <el-tag size="small" effect="plain" type="info">{{ kbSpaceLabel(item.space) }}</el-tag>
               <el-tag v-if="item.layer" size="small" effect="plain" type="warning">{{ kbLayerLabel(item.layer) }}</el-tag>
-              <span v-if="item.hot" class="kb-hot">🔥 高频</span>
+              <span v-if="item.hot" class="kb-hot">高频</span>
               <span class="kb-item-age mono">{{ kbAgeLabel(item.day) }}</span>
             </div>
             <div class="kb-item-line">{{ item.line }}</div>
             <div class="kb-item-meta">
               <span>{{ item.source || item.page || '来源未标' }}</span>
               <span v-if="item.company">{{ item.company }}</span>
+              <span v-if="item.platform">{{ item.platform }}</span>
+              <span v-if="item.topic">{{ item.topic }}</span>
               <span v-if="item.frequency">{{ item.frequency }}</span>
               <span v-if="item.day" class="mono">{{ item.day }}</span>
-              <template v-if="item.source_urls && item.source_urls.length">
-                <a v-for="src in item.source_urls.slice(0, 2)" :key="src.url" :href="src.url" target="_blank" rel="noreferrer">原文</a>
-              </template>
+            </div>
+            <div v-if="item.source_urls && item.source_urls.length" class="kb-item-sources">
+              <span>本批资料来源：</span>
+              <a v-for="src in item.source_urls.slice(0, 2)" :key="src.url" :href="src.url"
+                 target="_blank" rel="noopener noreferrer">{{ kbSourceLabel(src) }}</a>
             </div>
           </article>
-          <p v-if="!kbItemsLoading && !kbFilteredItems.length" class="empty-inline dim">没有符合筛选条件的条目</p>
+          <el-pagination v-if="kbCatalog.pages > 1" class="kb-pagination" background
+                         layout="prev, pager, next" :current-page="kbPage" :page-size="kbPageSize"
+                         :total="kbItemsTotal" aria-label="知识库条目分页" @current-change="onKbPageChange"></el-pagination>
         </div>
       </section>
 
@@ -711,7 +732,15 @@
 
       <template v-if="st.LLM_PROVIDER === 'openai'">
         <el-form-item label="OpenAI API Key">
-          <el-input v-model="st.OPENAI_API_KEY" type="password" show-password placeholder="sk-..."></el-input>
+          <div class="secret-field">
+            <el-input v-model="st.OPENAI_API_KEY" type="password" show-password
+                      :disabled="secretWillClear('OPENAI_API_KEY')"
+                      :placeholder="secretConfigured('OPENAI_API_KEY') ? '已配置；留空保持不变' : 'sk-...'"></el-input>
+            <el-button v-if="secretConfigured('OPENAI_API_KEY')" link size="small"
+                       @click="toggleSecretClear('OPENAI_API_KEY')">
+              {{ secretWillClear('OPENAI_API_KEY') ? '取消清除' : '清除已配置 Key' }}
+            </el-button>
+          </div>
         </el-form-item>
         <el-form-item label="模型">
           <el-input v-model="st.OPENAI_MODEL" placeholder="gpt-5"></el-input>
@@ -722,7 +751,15 @@
       </template>
       <template v-else>
         <el-form-item label="Anthropic API Key">
-          <el-input v-model="st.ANTHROPIC_API_KEY" type="password" show-password placeholder="sk-ant-...（中转站的 key 也填这里）"></el-input>
+          <div class="secret-field">
+            <el-input v-model="st.ANTHROPIC_API_KEY" type="password" show-password
+                      :disabled="secretWillClear('ANTHROPIC_API_KEY')"
+                      :placeholder="secretConfigured('ANTHROPIC_API_KEY') ? '已配置；留空保持不变' : 'sk-ant-...（中转站的 key 也填这里）'"></el-input>
+            <el-button v-if="secretConfigured('ANTHROPIC_API_KEY')" link size="small"
+                       @click="toggleSecretClear('ANTHROPIC_API_KEY')">
+              {{ secretWillClear('ANTHROPIC_API_KEY') ? '取消清除' : '清除已配置 Key' }}
+            </el-button>
+          </div>
         </el-form-item>
         <el-form-item label="模型">
           <el-input v-model="st.ANTHROPIC_MODEL" placeholder="claude-opus-5"></el-input>
@@ -758,7 +795,14 @@
         <code>https://api.siliconflow.cn/v1</code>，模型填 <code>FunAudioLLM/SenseVoiceSmall</code>（免费）。
         用 OpenAI 中转站的话 Base URL 填中转站地址（带 /v1），模型 <code>whisper-1</code> 或 <code>gpt-4o-mini-transcribe</code>。</p>
       <el-form-item label="转写 API Key">
-        <el-input v-model="st.STT_API_KEY" type="password" show-password placeholder="留空 = 复用 OpenAI Key"></el-input>
+        <div class="secret-field">
+          <el-input v-model="st.STT_API_KEY" type="password" show-password
+                    :disabled="secretWillClear('STT_API_KEY')"
+                    :placeholder="secretConfigured('STT_API_KEY') ? '已配置；留空保持不变' : '留空 = 复用 OpenAI Key'"></el-input>
+          <el-button v-if="secretConfigured('STT_API_KEY')" link size="small" @click="toggleSecretClear('STT_API_KEY')">
+            {{ secretWillClear('STT_API_KEY') ? '取消清除' : '清除已配置 Key' }}
+          </el-button>
+        </div>
       </el-form-item>
       <el-form-item label="转写 Base URL">
         <el-input v-model="st.STT_BASE_URL" placeholder="如 https://api.siliconflow.cn/v1"></el-input>
@@ -782,7 +826,14 @@
         <code>gpt-4o-mini-tts</code> + 音色 <code>onyx</code>；或硅基流动 <code>FunAudioLLM/CosyVoice2-0.5B</code> +
         <code>FunAudioLLM/CosyVoice2-0.5B:benjamin</code>。</p>
       <el-form-item label="合成 API Key">
-        <el-input v-model="st.TTS_API_KEY" type="password" show-password placeholder="留空 = 复用 OpenAI Key"></el-input>
+        <div class="secret-field">
+          <el-input v-model="st.TTS_API_KEY" type="password" show-password
+                    :disabled="secretWillClear('TTS_API_KEY')"
+                    :placeholder="secretConfigured('TTS_API_KEY') ? '已配置；留空保持不变' : '留空 = 复用 OpenAI Key'"></el-input>
+          <el-button v-if="secretConfigured('TTS_API_KEY')" link size="small" @click="toggleSecretClear('TTS_API_KEY')">
+            {{ secretWillClear('TTS_API_KEY') ? '取消清除' : '清除已配置 Key' }}
+          </el-button>
+        </div>
       </el-form-item>
       <el-form-item label="合成 Base URL">
         <el-input v-model="st.TTS_BASE_URL" placeholder="第三方兼容网关才填"></el-input>
@@ -826,6 +877,7 @@
 <script src="/static/vendor/element-plus-locale-zhcn.min.js"></script>
 <script src="/static/vendor/element-plus-icons.iife.min.js"></script>
 <script src="/static/vendor/marked.min.js"></script>
+<script src="/static/vendor/purify.min.js"></script>
 <script src="/static/kb-ui-utils.js"></script>
 <script src="/static/app.js"></script>
 </body>

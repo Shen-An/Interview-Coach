@@ -18,8 +18,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, UploadFile
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi import FastAPI, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -49,10 +49,43 @@ os.environ["IC_KB_DIR"] = str(DATA_DIR / "kb")
 
 from . import prompts, resume as resume_mod, retrieval  # noqa: E402
 from .llm import LLMClient  # noqa: E402
+from .security import safe_http_url  # noqa: E402
 
 app = FastAPI(title="interview-coach")
 llm = LLMClient()
 logger = logging.getLogger("interview_coach")
+
+_API_HEADER = "X-Interview-Coach"
+_API_HEADER_VALUE = "1"
+_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def _origin_parts(value: str) -> tuple[str, str, int | None] | None:
+    try:
+        parsed = urlparse(value)
+        if parsed.scheme not in ("http", "https") or parsed.hostname not in _LOOPBACK_HOSTS:
+            return None
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        return parsed.scheme, parsed.hostname, port
+    except ValueError:
+        return None
+
+
+@app.middleware("http")
+async def local_request_boundary(request: Request, call_next):
+    host = request.url.hostname
+    if host not in _LOOPBACK_HOSTS:
+        return JSONResponse({"detail": "只接受本机访问"}, status_code=400)
+    if request.headers.get("sec-fetch-site", "").lower() == "cross-site":
+        return JSONResponse({"detail": "拒绝跨站请求"}, status_code=403)
+    origin = request.headers.get("origin")
+    if origin and _origin_parts(origin) != _origin_parts(str(request.base_url).rstrip("/")):
+        return JSONResponse({"detail": "Origin 与本机服务不匹配"}, status_code=403)
+    sensitive = request.method not in ("GET", "HEAD", "OPTIONS") or request.url.path == "/api/settings"
+    if sensitive and request.headers.get(_API_HEADER) != _API_HEADER_VALUE:
+        return JSONResponse({"detail": "缺少本机应用请求标记"}, status_code=403)
+    return await call_next(request)
+
 
 SESSIONS_DIR = DATA_DIR / "sessions"
 SESSIONS_DIR.mkdir(exist_ok=True)
@@ -209,6 +242,7 @@ SETTINGS_KEYS = [
     "STT_API_KEY", "STT_BASE_URL", "STT_MODEL",
     "TTS_API_KEY", "TTS_BASE_URL", "TTS_MODEL", "TTS_VOICE",
 ]
+SECRET_KEYS = {"ANTHROPIC_API_KEY", "OPENAI_API_KEY", "STT_API_KEY", "TTS_API_KEY"}
 
 ENV_TEMPLATE = """# ===== interview-coach 配置（可在应用「设置」里修改） =====
 LLM_PROVIDER={LLM_PROVIDER}
@@ -241,18 +275,46 @@ TTS_VOICE={TTS_VOICE}
 
 
 class SettingsReq(BaseModel):
-    values: dict[str, str] = {}
+    values: dict[str, str] = Field(default_factory=dict)
+    clear_secrets: list[str] = Field(default_factory=list)
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def _public_settings() -> dict:
+    values = {key: os.getenv(key, "") for key in SETTINGS_KEYS if key not in SECRET_KEYS}
+    values["configured_secrets"] = {key: bool(os.getenv(key, "")) for key in sorted(SECRET_KEYS)}
+    for key in SECRET_KEYS:
+        values[key] = ""
+    return values
 
 
 @app.get("/api/settings")
 def get_settings():
-    return {k: os.getenv(k, "") for k in SETTINGS_KEYS}
+    return _public_settings()
 
 
 @app.post("/api/settings")
 def save_settings(req: SettingsReq):
     global llm
-    vals = {k: (req.values.get(k) or "").strip() for k in SETTINGS_KEYS}
+    vals = {key: os.getenv(key, "").strip() for key in SETTINGS_KEYS}
+    for key in SETTINGS_KEYS:
+        if key in req.values and key not in SECRET_KEYS:
+            vals[key] = str(req.values[key] or "").strip()
+    clear = SECRET_KEYS.intersection(req.clear_secrets)
+    for key in SECRET_KEYS:
+        supplied = str(req.values.get(key) or "").strip()
+        if key in clear:
+            vals[key] = ""
+        elif supplied:
+            vals[key] = supplied
     if vals["LLM_PROVIDER"] not in ("anthropic", "openai"):
         vals["LLM_PROVIDER"] = "anthropic"
     vals["ANTHROPIC_MODEL"] = vals["ANTHROPIC_MODEL"] or "claude-opus-5"
@@ -260,16 +322,17 @@ def save_settings(req: SettingsReq):
     vals["STT_MODEL"] = vals["STT_MODEL"] or "gpt-4o-mini-transcribe"
     vals["TTS_MODEL"] = vals["TTS_MODEL"] or "gpt-4o-mini-tts"
     vals["TTS_VOICE"] = vals["TTS_VOICE"] or "onyx"
-    ENV_PATH.write_text(ENV_TEMPLATE.format(**vals), encoding="utf-8")
-    for k, v in vals.items():
-        if v:
-            os.environ[k] = v
+    _atomic_write_text(ENV_PATH, ENV_TEMPLATE.format(**vals))
+    for key, value in vals.items():
+        if value:
+            os.environ[key] = value
         else:
-            os.environ.pop(k, None)
-    llm = LLMClient()  # 热重建客户端，立即生效
+            os.environ.pop(key, None)
+    llm = LLMClient()
     ok, detail = llm.ready()
     return {"ready": ok, "detail": detail,
-            "stt_api_ready": bool(os.getenv("STT_API_KEY") or os.getenv("OPENAI_API_KEY"))}
+            "stt_api_ready": bool(os.getenv("STT_API_KEY") or os.getenv("OPENAI_API_KEY")),
+            "configured_secrets": {key: bool(vals[key]) for key in sorted(SECRET_KEYS)}}
 
 
 @app.get("/api/config")
@@ -611,6 +674,10 @@ def _sanitize_qa_reply(reply: str) -> str:
     return cleaned.strip()
 
 
+def _safe_http_url(value: object) -> str:
+    return safe_http_url(value)
+
+
 def _qa_sources(items: list[dict]) -> list[dict]:
     """将检索条目的内部结构压成前端可展示的来源。"""
     out, seen = [], set()
@@ -621,9 +688,8 @@ def _qa_sources(items: list[dict]) -> list[dict]:
         seen.add(key)
         urls = []
         for source_url in item.get("source_urls") or []:
-            url = str(source_url.get("url") or "").strip()
-            parsed = urlparse(url)
-            if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            url = _safe_http_url(source_url.get("url"))
+            if not url:
                 continue
             urls.append({"url": url, "title": str(source_url.get("title") or "")[:200]})
         out.append({
@@ -883,10 +949,25 @@ def kb_items(q: str = "", kind: str = "", layer: str = "", company: str = "",
     )
 
 
+def _filter_public_urls(value):
+    if isinstance(value, dict):
+        out = dict(value)
+        if "url" in out:
+            out["url"] = _safe_http_url(out["url"])
+        for key, item in list(out.items()):
+            out[key] = _filter_public_urls(item)
+        return out
+    if isinstance(value, list):
+        return [item for raw in value if (item := _filter_public_urls(raw)) and not (
+            isinstance(item, dict) and "url" in item and not item["url"]
+        )]
+    return value
+
+
 @app.get("/api/kb/latest")
 def kb_latest():
     """最新一节增量情报，前端「查看情报」用。"""
-    return kb_mgr.latest_section()
+    return _filter_public_urls(kb_mgr.latest_section())
 
 
 @app.post("/api/kb/refresh")

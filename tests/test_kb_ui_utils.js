@@ -1,6 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { localDateKey, isStale, daysSince, filterItems } = require("../frontend/kb-ui-utils.js");
+const {
+  localDateKey, isStale, daysSince, filterItems, catalogParams, catalogState, sourceLabel,
+} = require("../frontend/kb-ui-utils.js");
 
 test("uses local calendar date instead of UTC date", () => {
   const beijingEarlyMorning = new Date("2026-09-08T23:30:00.000Z");
@@ -24,4 +26,28 @@ test("filters the catalog by text, kind and freshness", () => {
   const now = new Date("2026-09-09T04:00:00+08:00");
   assert.equal(filterItems(items, { query: "redis", kind: "questions", days: 7 }, now).length, 1);
   assert.equal(filterItems(items, { company: "tencent" }, now).length, 1);
+});
+
+test("builds server catalog parameters", () => {
+  const params = new URLSearchParams(catalogParams({
+    query: " redis ", kind: "questions", layer: "1", company: "ByteDance",
+    space: "intel", days: 7,
+  }, 3, 50));
+  assert.deepEqual(Object.fromEntries(params), {
+    q: "redis", kind: "questions", layer: "1", company: "ByteDance",
+    space: "intel", days: "7", page: "3", page_size: "50",
+  });
+});
+
+test("distinguishes loading, error, empty and ready catalog states", () => {
+  assert.equal(catalogState(true, "", 2), "loading");
+  assert.equal(catalogState(false, "network down", 0), "error");
+  assert.equal(catalogState(false, "", 0), "empty");
+  assert.equal(catalogState(false, "", 1), "ready");
+});
+
+test("uses source title or hostname as accessible link text", () => {
+  assert.equal(sourceLabel({ title: "Original post", url: "https://example.com/a" }), "Original post");
+  assert.equal(sourceLabel({ url: "https://docs.example.com/a" }), "docs.example.com");
+  assert.equal(sourceLabel({ url: "javascript:alert(1)" }), "查看来源");
 });

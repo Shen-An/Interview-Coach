@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from backend import prompts, retrieval
 
@@ -53,6 +54,39 @@ class InterviewFlowTests(unittest.TestCase):
         self.assertEqual([item["kind"] for item in retrieval.select_turn(store, recent="Redis cluster", kinds=("scenarios",))], ["scenarios"])
         self.assertEqual(retrieval.select_turn(store, recent="Redis cluster", kinds=()), [])
         self.assertEqual(len(retrieval.select_turn(store, recent="Redis cluster", kinds=None)), 2)
+
+    def test_selection_cache_uses_content_fingerprint(self):
+        stores = [
+            {"items": [{"id": "old"}], "version": ("old",), "newest": "2026-09-01", "total": 1},
+            {"items": [{"id": "new"}], "version": ("new",), "newest": "2026-09-01", "total": 1},
+        ]
+
+        def select(store, **_kwargs):
+            return {"questions": [{"id": store["items"][0]["id"]}]}
+
+        prompts._sel_cache.clear()
+        try:
+            with patch.object(prompts.retrieval, "load", side_effect=stores), patch.object(
+                prompts.retrieval, "select", side_effect=select
+            ) as mocked_select:
+                first = prompts.select_wiki("一面", "随机", "resume", "应届校招")[1]
+                second = prompts.select_wiki("一面", "随机", "resume", "应届校招")[1]
+            self.assertEqual(first["questions"][0]["id"], "old")
+            self.assertEqual(second["questions"][0]["id"], "new")
+            self.assertEqual(mocked_select.call_count, 2)
+        finally:
+            prompts._sel_cache.clear()
+
+    def test_qa_and_interviewer_share_untrusted_wiki_rules(self):
+        self.assertIn(prompts.UNTRUSTED_WIKI_RULES, prompts.build_qa_system("untrusted"))
+        store = {"bank_total": 1, "intel_total": 1}
+        with patch.object(prompts, "select_wiki", return_value=(store, {})), patch.object(
+            prompts.retrieval, "render_bank", return_value="bank"
+        ), patch.object(prompts.retrieval, "render_block", return_value="intel"), patch.object(
+            prompts, "_read", return_value="persona"
+        ):
+            system = prompts.build_interviewer_system("一面", "随机")
+        self.assertIn(prompts.UNTRUSTED_WIKI_RULES, system)
 
 
 if __name__ == "__main__":

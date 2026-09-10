@@ -24,6 +24,22 @@
 - TTS 取消、降级和并行预取行为验证
 - 浏览器与 Electron 两种模式的回归检查
 
+## Phase 3: Wiki 安全与规模化（已完成）
+
+**Goal:** 在不改变检索排名的前提下，让 Wiki 浏览、来源、写入和本地 API 能安全支持超过 500 条的持续增长。
+
+**Requirements:** WIKI-01–WIKI-12
+
+**Deliverables:**
+- 明确允许列表的 Markdown 清洗和仅 HTTP(S) 的来源边界
+- loopback 同源 API 防护与不泄露密钥的设置流程
+- 服务端筛选、每页 50 条分页、竞态保护和完整目录状态
+- topic/platform/space 浏览字段与 artifact 级来源语义
+- `RLock` 写事务、原子文件替换和内容指纹缓存失效
+- Python、Node、浏览器、移动端、检索和 Electron 随机端口验证
+
+**Result:** 2026-09-10 完成。25 个 Python 测试、6 个 Node 测试通过；395 条目录；检索保持 108/110（98.2%）。
+
 ## Completion Criteria
 
 - 真实或 fake LLM 测试可以输出首字耗时、完整回答耗时、fallback 次数和错误原因。

@@ -7,6 +7,27 @@ const SR = IS_ELECTRON ? null : window.SpeechRecognition || window.webkitSpeechR
 
 const ZH_CN = window.ElementPlusLocaleZhCn || null;
 
+const API_HEADER = "X-Interview-Coach";
+
+function apiFetch(input, init = {}) {
+  const headers = new Headers(init.headers || {});
+  headers.set(API_HEADER, "1");
+  return fetch(input, { ...init, headers });
+}
+
+const MARKDOWN_TAGS = [
+  "a", "blockquote", "br", "code", "del", "em", "h1", "h2", "h3", "h4", "h5", "h6",
+  "hr", "li", "ol", "p", "pre", "strong", "table", "tbody", "td", "th", "thead", "tr", "ul",
+];
+
+function renderMarkdown(markdown) {
+  return DOMPurify.sanitize(marked.parse(String(markdown || "")), {
+    ALLOWED_TAGS: MARKDOWN_TAGS,
+    ALLOWED_ATTR: ["class", "href", "title"],
+    ALLOW_DATA_ATTR: false,
+  });
+}
+
 // 五维定义来自 kb/SCORING-RUBRIC.md，用于把复盘正文解析成评分卡
 const DIMS = {
   A: { name: "概念与架构", max: 15 },
@@ -35,6 +56,7 @@ const app = createApp({
       saveMsg: "",
       saveOk: false,
       st: {},
+      clearSecrets: [],
       testing: { llm: false, stt: false, tts: false },
       testMsg: { llm: "", stt: "", tts: "" },
       testOk: { llm: false, stt: false, tts: false },
@@ -45,8 +67,13 @@ const app = createApp({
       kbItems: [],
       kbItemsTotal: 0,
       kbItemsLoading: false,
-      kbCatalog: { stats: {}, facets: { kinds: [], layers: [], companies: [] } },
+      kbCatalog: { stats: {}, facets: { kinds: [], layers: [], spaces: [], companies: [], platforms: [] } },
       kbFilter: { query: "", kind: "", layer: "", company: "", space: "", days: 0 },
+      kbPage: 1,
+      kbPageSize: 50,
+      kbItemsError: "",
+      _kbRequestId: 0,
+      _kbSearchTimer: null,
       history: [],
       showHistory: false,
       historyTitle: "",
@@ -146,7 +173,10 @@ const app = createApp({
       return n >= 10000 ? (n / 10000).toFixed(1) + " 万" : String(n);
     },
     kbFilteredItems() {
-      return KbUi.filterItems(this.kbItems, this.kbFilter);
+      return this.kbItems;
+    },
+    kbCatalogState() {
+      return KbUi.catalogState(this.kbItemsLoading, this.kbItemsError, this.kbItemsTotal);
     },
     kbKindLabel() {
       const labels = {
@@ -169,6 +199,15 @@ const app = createApp({
         if (age == null) return "沉淀题库";
         return age === 0 ? "今天" : `${age}天前`;
       };
+    },
+    kbSourceLabel() {
+      return (source) => KbUi.sourceLabel(source);
+    },
+    secretConfigured() {
+      return (key) => !!((this.st.configured_secrets || {})[key]);
+    },
+    secretWillClear() {
+      return (key) => this.clearSecrets.includes(key);
     },
     avgScore() {
       const scored = this.history.filter((h) => h.score).slice(0, 5);
@@ -259,13 +298,13 @@ const app = createApp({
       if (!this.report) return "";
       // 评分卡已经把总分和五维表提到上面了，正文里就不再重复一遍
       const md = this.scores.length ? this.stripScoreBlock(this.report) : this.report;
-      return marked.parse(md);
+      return renderMarkdown(md);
     },
   },
 
   async mounted() {
     try {
-      this.cfg = await (await fetch("/api/config")).json();
+      this.cfg = await (await apiFetch("/api/config")).json();
     } catch {
       this.cfg = { ready: false, detail: "后端未启动" };
     }
@@ -309,7 +348,7 @@ const app = createApp({
 
     /* ---------- 独立面试问答 ---------- */
     qaHtml(text) {
-      return marked.parse(text || "");
+      return renderMarkdown(text);
     },
     timingLabel(timing) {
       if (!timing || typeof timing.total_ms !== "number") return "";
@@ -341,7 +380,7 @@ const app = createApp({
     async loadQaConversations(preferredId = null) {
       this.qaLoadingConversations = true;
       try {
-        const r = await fetch("/api/qa/conversations");
+        const r = await apiFetch("/api/qa/conversations");
         if (!r.ok) throw new Error(await this.qaApiError(r, "会话列表加载失败"));
         const data = await r.json();
         this.qaConversations = data.items || [];
@@ -366,7 +405,7 @@ const app = createApp({
     },
     async refreshQaConversationList() {
       try {
-        const r = await fetch("/api/qa/conversations");
+        const r = await apiFetch("/api/qa/conversations");
         if (r.ok) this.qaConversations = (await r.json()).items || [];
       } catch {
         // 问答已经完成时，列表刷新失败不应覆盖当前回答。
@@ -376,7 +415,7 @@ const app = createApp({
       if (!id || this.qaBusy || this.qaSwitching) return;
       this.qaSwitching = true;
       try {
-        const r = await fetch(`/api/qa/conversations/${encodeURIComponent(id)}`);
+        const r = await apiFetch(`/api/qa/conversations/${encodeURIComponent(id)}`);
         if (!r.ok) throw new Error(await this.qaApiError(r, "会话读取失败"));
         const conversation = await r.json();
         this.qaConversationId = conversation.id;
@@ -398,7 +437,7 @@ const app = createApp({
     async createQaConversation() {
       if (this.qaBusy || this.qaSwitching) return false;
       try {
-        const r = await fetch("/api/qa/conversations", {
+        const r = await apiFetch("/api/qa/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({}),
@@ -430,7 +469,7 @@ const app = createApp({
       }
       const deletedId = this.qaConversationId;
       try {
-        const r = await fetch(`/api/qa/conversations/${encodeURIComponent(deletedId)}`, { method: "DELETE" });
+        const r = await apiFetch(`/api/qa/conversations/${encodeURIComponent(deletedId)}`, { method: "DELETE" });
         if (!r.ok) throw new Error(await this.qaApiError(r, "删除失败"));
         this.qaConversations = this.qaConversations.filter((item) => item.id !== deletedId);
         this.qaConversationId = null;
@@ -472,7 +511,7 @@ const app = createApp({
         this.scheduleStreamRender(holder, "qaBox");
       };
       try {
-        const r = await fetch("/api/qa/ask/stream", {
+        const r = await apiFetch("/api/qa/ask/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question: text, conversation_id: conversationId, history }),
@@ -587,7 +626,7 @@ const app = createApp({
       try {
         const fd = new FormData();
         fd.append("file", f, f.name);
-        const r = await fetch("/api/resume", { method: "POST", body: fd });
+        const r = await apiFetch("/api/resume", { method: "POST", body: fd });
         if (!r.ok) throw new Error((await r.json()).detail);
         this.resume = await r.json();
         ElMessage.success(`已读入《${this.resume.filename}》，面试官会照着它问`);
@@ -608,7 +647,7 @@ const app = createApp({
         return;
       }
       try {
-        await fetch("/api/resume", { method: "DELETE" });
+        await apiFetch("/api/resume", { method: "DELETE" });
         this.resume = { loaded: false };
         ElMessage.success("已移除");
       } catch (e) {
@@ -619,28 +658,39 @@ const app = createApp({
     /* ---------- 设置 ---------- */
     async openSettings() {
       try {
-        this.st = await (await fetch("/api/settings")).json();
+        this.st = await (await apiFetch("/api/settings")).json();
       } catch {
         this.st = { LLM_PROVIDER: "anthropic" };
       }
       if (!this.st.LLM_PROVIDER) this.st.LLM_PROVIDER = "anthropic";
+      this.clearSecrets = [];
       this.saveMsg = "";
       this.micTest.msg = "";
       this.showSettings = true;
       this.loadMics();          // 设备列表要授权后才有标签，进设置时拉一次
     },
+    toggleSecretClear(key) {
+      if (this.clearSecrets.includes(key)) {
+        this.clearSecrets = this.clearSecrets.filter((item) => item !== key);
+      } else {
+        this.clearSecrets = [...this.clearSecrets, key];
+        this.st[key] = "";
+      }
+    },
     async saveSettings() {
       this.savingSettings = true;
       this.saveMsg = "";
       try {
-        const r = await fetch("/api/settings", {
+        const r = await apiFetch("/api/settings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ values: this.st }),
+          body: JSON.stringify({ values: this.st, clear_secrets: this.clearSecrets }),
         });
         if (!r.ok) throw new Error((await r.json()).detail);
         const d = await r.json();
-        this.cfg = await (await fetch("/api/config")).json();
+        this.st.configured_secrets = d.configured_secrets || {};
+        this.clearSecrets = [];
+        this.cfg = await (await apiFetch("/api/config")).json();
         this.sttAvailable = SR ? true : !!(d.stt_api_ready && navigator.mediaDevices);
         this.saveOk = !!d.ready;
         this.saveMsg = d.ready ? "已生效" : d.detail;
@@ -660,16 +710,16 @@ const app = createApp({
     /* ---------- 复盘档案 ---------- */
     async loadHistory() {
       try {
-        this.history = (await (await fetch("/api/history")).json()).items || [];
+        this.history = (await (await apiFetch("/api/history")).json()).items || [];
       } catch {
         this.history = [];
       }
     },
     async openHistory(h) {
       try {
-        const d = await (await fetch(`/api/history/${encodeURIComponent(h.id)}`)).json();
+        const d = await (await apiFetch(`/api/history/${encodeURIComponent(h.id)}`)).json();
         this.historyTitle = `${h.round} · ${h.style}风格 · ${(h.started_at || "").replace("T", " ")}`;
-        this.historyHtml = marked.parse(d.md || "");
+        this.historyHtml = renderMarkdown(d.md);
         this.showHistory = true;
       } catch (e) {
         ElMessage.error("读取记录失败：" + e.message);
@@ -685,20 +735,20 @@ const app = createApp({
       } catch {
         return;
       }
-      await fetch(`/api/history/${encodeURIComponent(h.id)}`, { method: "DELETE" });
+      await apiFetch(`/api/history/${encodeURIComponent(h.id)}`, { method: "DELETE" });
       this.loadHistory();
     },
 
     /* ---------- 配置自检：保存并测试 ---------- */
     async saveQuiet() {
       // 静默保存：测试按钮先落盘当前表单再测，不关弹窗不弹提示
-      const r = await fetch("/api/settings", {
+      const r = await apiFetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ values: this.st }),
       });
       if (!r.ok) throw new Error((await r.json()).detail);
-      this.cfg = await (await fetch("/api/config")).json();
+      this.cfg = await (await apiFetch("/api/config")).json();
       this._cloudTtsDead = false;
       const SR_OK = window.SpeechRecognition || window.webkitSpeechRecognition;
       this.sttAvailable = !IS_ELECTRON && SR_OK ? true : !!(this.cfg.stt_api_ready && navigator.mediaDevices);
@@ -709,7 +759,7 @@ const app = createApp({
       this.testMsg.llm = "";
       try {
         await this.saveQuiet();
-        const d = await (await fetch("/api/test/llm", { method: "POST" })).json();
+        const d = await (await apiFetch("/api/test/llm", { method: "POST" })).json();
         this.testOk.llm = d.ok;
         this.testMsg.llm = d.ok
           ? `通了 · ${(d.ms / 1000).toFixed(1)}s · 她说：「${d.reply}」`
@@ -726,7 +776,7 @@ const app = createApp({
       this.testMsg.stt = "";
       try {
         await this.saveQuiet();
-        const d = await (await fetch("/api/test/stt", { method: "POST" })).json();
+        const d = await (await apiFetch("/api/test/stt", { method: "POST" })).json();
         this.testOk.stt = d.ok;
         this.testMsg.stt = d.ok
           ? `通了 · ${(d.ms / 1000).toFixed(1)}s · 识别出：「${d.heard}」`
@@ -762,7 +812,7 @@ const app = createApp({
       }
       this.kbBusy = true;
       try {
-        const r = await fetch("/api/kb/refresh", { method: "POST" });
+        const r = await apiFetch("/api/kb/refresh", { method: "POST" });
         if (!r.ok) throw new Error((await r.json()).detail);
         const d = await r.json();
         this.kb = d.kb;
@@ -774,43 +824,60 @@ const app = createApp({
         // 搜索通路不可用时后端会给一段多行的排查说明，弹窗比 toast 读得清
         const msg = String(e.message || e);
         if (msg.includes("\n")) {
-          ElMessageBox.alert(msg.replace(/\n/g, "<br>"), "联网搜索用不了", {
-            dangerouslyUseHTMLString: true, confirmButtonText: "知道了",
+          ElMessageBox.alert(msg, "联网搜索用不了", {
+            confirmButtonText: "知道了",
           });
         } else ElMessage.error("更新失败：" + msg);
       } finally {
         this.kbBusy = false;
       }
     },
-    async loadKbItems() {
+    async loadKbItems({ resetPage = false } = {}) {
+      if (resetPage) this.kbPage = 1;
+      const requestId = ++this._kbRequestId;
       this.kbItemsLoading = true;
+      this.kbItemsError = "";
       try {
-        const r = await fetch("/api/kb/items?page_size=500");
+        const query = KbUi.catalogParams(this.kbFilter, this.kbPage, this.kbPageSize);
+        const r = await apiFetch(`/api/kb/items?${query}`);
         if (!r.ok) throw new Error("无法读取知识库条目");
         const d = await r.json();
+        if (requestId !== this._kbRequestId) return;
         this.kbItems = d.items || [];
         this.kbItemsTotal = d.total || 0;
+        this.kbPage = d.page || 1;
         this.kbCatalog = d;
       } catch (e) {
+        if (requestId !== this._kbRequestId) return;
         this.kbItems = [];
         this.kbItemsTotal = 0;
-        this.kbCatalog = { stats: {}, facets: { kinds: [], layers: [], companies: [] } };
-        console.warn("knowledge catalog unavailable", e);
+        this.kbItemsError = e.message || "知识库目录加载失败";
       } finally {
-        this.kbItemsLoading = false;
+        if (requestId === this._kbRequestId) this.kbItemsLoading = false;
       }
+    },
+    onKbFilterChange() {
+      this.loadKbItems({ resetPage: true });
+    },
+    onKbQueryInput() {
+      clearTimeout(this._kbSearchTimer);
+      this._kbSearchTimer = setTimeout(() => this.loadKbItems({ resetPage: true }), 250);
+    },
+    onKbPageChange(page) {
+      this.kbPage = page;
+      this.loadKbItems();
     },
 
     showIntelSummary(d) {
       this.intelTitle = d.section || "增量情报";
-      this.intelHtml = marked.parse(d.summary || "（这次没有产出新内容）");
+      this.intelHtml = renderMarkdown(d.summary || "（这次没有产出新内容）");
       this.intelSites = d.sites || [];
       this.intelSources = d.sources || [];
     },
     async loadIntelLatest() {
       // 静默加载最新一节情报，情报库页面直接展示；没有内容就留空态
       try {
-        const r = await fetch("/api/kb/latest");
+        const r = await apiFetch("/api/kb/latest");
         if (!r.ok) return;
         const d = await r.json();
         if (d.summary) this.showIntelSummary(d);
@@ -826,7 +893,7 @@ const app = createApp({
       try {
         const fd = new FormData();
         fd.append("file", f, f.name);
-        const r = await fetch("/api/kb/import", { method: "POST", body: fd });
+        const r = await apiFetch("/api/kb/import", { method: "POST", body: fd });
         if (!r.ok) throw new Error((await r.json()).detail);
         const d = await r.json();
         this.kb = d.kb;
@@ -844,7 +911,7 @@ const app = createApp({
     async startInterview() {
       this.busy = true;
       try {
-        const r = await fetch("/api/session/start", {
+        const r = await apiFetch("/api/session/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ round: this.round, style: this.style, level: this.level }),
@@ -890,7 +957,7 @@ const app = createApp({
         this.scheduleStreamRender(holder, "chatBox");
       };
       try {
-        const r = await fetch(`/api/session/${this.sessionId}/turn/stream`, {
+        const r = await apiFetch(`/api/session/${this.sessionId}/turn/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text }),
@@ -957,7 +1024,7 @@ const app = createApp({
       const ctl = new AbortController();
       const killer = setTimeout(() => ctl.abort(), 360000);
       try {
-        const r = await fetch(`/api/session/${this.sessionId}/end`, { method: "POST", signal: ctl.signal });
+        const r = await apiFetch(`/api/session/${this.sessionId}/end`, { method: "POST", signal: ctl.signal });
         if (!r.ok) throw new Error((await r.json()).detail);
         const d = await r.json();
         this.report = d.report;
@@ -1107,7 +1174,7 @@ const app = createApp({
     },
 
     async fetchTTS(text) {
-      const r = await fetch("/api/tts", {
+      const r = await apiFetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, style: this.style }),
@@ -1330,15 +1397,15 @@ const app = createApp({
     warnSilentMic(peak) {
       const cur = this.mics.find((m) => m.id === this.micId);
       ElMessageBox.alert(
-        `这段录音全程没有声音（峰值 ${Math.round(peak * 100)}%），不是没识别出来，是根本没采到。<br><br>` +
-        `当前设备：<b>${cur ? cur.label : "系统默认"}</b><br><br>` +
-        "常见原因：<br>" +
-        "• <b>蓝牙耳机</b>：麦克风只在「免提/Hands-Free」端点上，选带 Hands-Free 字样的那个<br>" +
-        "• 系统默认输入是空插孔或虚拟声卡（如虚拟音频设备），录出来就是静音<br>" +
-        "• 麦克风被系统静音，或 Windows 隐私设置里没放开麦克风权限<br><br>" +
+        `这段录音全程没有声音（峰值 ${Math.round(peak * 100)}%），不是没识别出来，是根本没采到。\n\n` +
+        `当前设备：${cur ? cur.label : "系统默认"}\n\n` +
+        "常见原因：\n" +
+        "• 蓝牙耳机：麦克风只在「免提/Hands-Free」端点上，选带 Hands-Free 字样的那个\n" +
+        "• 系统默认输入是空插孔或虚拟声卡（如虚拟音频设备），录出来就是静音\n" +
+        "• 麦克风被系统静音，或 Windows 隐私设置里没放开麦克风权限\n\n" +
         "去「设置 → 语音转写 → 麦克风」挑一个，用旁边的测试按钮确认能看到电平。",
         "没采到声音",
-        { dangerouslyUseHTMLString: true, confirmButtonText: "去设置" }
+        { confirmButtonText: "去设置" }
       ).then(() => this.openSettings()).catch(() => {});
     },
 
@@ -1378,7 +1445,7 @@ const app = createApp({
         try {
           const fd = new FormData();
           fd.append("file", blob, "answer.webm");
-          const r = await fetch("/api/stt", { method: "POST", body: fd });
+          const r = await apiFetch("/api/stt", { method: "POST", body: fd });
           if (!r.ok) throw new Error((await r.json()).detail);
           const d = await r.json();
           if (d.text) {

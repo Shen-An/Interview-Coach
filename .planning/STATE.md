@@ -11,7 +11,7 @@ See: `.planning/PROJECT.md` (updated 2026-09-03)
 
 - **Phase:** 1 of 2
 - **Status:** Context gathered; research and planning pending
-- **Last activity:** 2026-09-03 — confirmed response-speed scope and tradeoffs
+- **Last activity:** 2026-09-10 — completed Wiki security and scale hardening with browser/mobile/Electron verification
 - **Next step:** `$gsd-plan-phase 1`
 
 ## Decisions Locked
@@ -24,3 +24,15 @@ See: `.planning/PROJECT.md` (updated 2026-09-03)
 ## Uncommitted Workspace Note
 
 本次 GSD 文档与之前独立问答功能改动均暂未提交。后续执行不得覆盖或回滚现有工作区修改。
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260909-sw3 | 按 P0→P1→P2 升级 Wiki，并完成 Markdown/API/密钥边界、服务端分页、原子写入和缓存失效加固 | 2026-09-10 | 9ea8f81（基础升级；后续加固未提交） | [260909-sw3-wiki-quality-upgrade](./quick/260909-sw3-wiki-quality-upgrade/) |
+
+### Wiki Security and Scale Verification
+
+- 25 个 Python 测试、6 个 Node 测试通过；目录 395 条，默认每页 50 条。
+- 检索保持 108/110（98.2%）；浏览器、375px 移动端和 Electron 随机端口 smoke 通过。
+- 当前工作区仍有未提交的 Wiki 加固和既有用户修改；后续不得覆盖或回滚。

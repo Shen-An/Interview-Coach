@@ -47,10 +47,47 @@
     });
   }
 
+  function catalogParams(filters, page, pageSize) {
+    const source = filters || {};
+    const params = new URLSearchParams();
+    const values = {
+      q: String(source.query || "").trim(),
+      kind: source.kind,
+      layer: source.layer,
+      company: String(source.company || "").trim(),
+      space: source.space,
+      days: Number(source.days || 0),
+      page: Math.max(1, Number(page || 1)),
+      page_size: Math.max(1, Number(pageSize || 50)),
+    };
+    Object.entries(values).forEach(([key, value]) => {
+      if (value !== "" && value != null && (key === "page" || key === "page_size" || value !== 0)) {
+        params.set(key, String(value));
+      }
+    });
+    return params.toString();
+  }
+
+  function catalogState(loading, error, total) {
+    if (loading) return "loading";
+    if (error) return "error";
+    return Number(total || 0) === 0 ? "empty" : "ready";
+  }
+
+  function sourceLabel(source) {
+    const title = String((source && source.title) || "").trim();
+    if (title) return title;
+    try {
+      return new URL(String((source && source.url) || "")).hostname || "查看来源";
+    } catch (_) {
+      return "查看来源";
+    }
+  }
+
   function isStale(latest, now) {
     const day = extractDay(latest);
     return !day || day !== localDateKey(now);
   }
 
-  return { localDateKey, extractDay, daysSince, filterItems, isStale };
+  return { localDateKey, extractDay, daysSince, filterItems, catalogParams, catalogState, sourceLabel, isStale };
 });

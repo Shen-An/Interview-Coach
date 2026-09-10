@@ -7,8 +7,8 @@
 ## 技术栈
 
 - **后端**：Python + FastAPI，会话管理 + 复盘存档
-- **前端**：Vue 3 + Element Plus（全部本地 vendored，无 node_modules、无构建步骤）
-- **语音**：浏览器 Web Speech API —— TTS 朗读题目 + STT 识别回答，**零本地模型、零额外 API 费用**（需 Edge 或 Chrome）
+- **前端**：Vue 3 + Element Plus（浏览器版全部本地 vendored，无前端构建步骤；Electron 打包时需要 Node.js 依赖）
+- **语音（浏览器版）**：Web Speech API —— TTS 朗读题目 + STT 识别回答，**零本地模型、零额外 API 费用**（需 Edge 或 Chrome）
 - **LLM**：支持 **Anthropic Claude（Messages API）** 和 **OpenAI（Responses API）**，key 自行填写
 
 ## 快速开始
@@ -19,7 +19,7 @@ pip install -r requirements.txt
 
 copy .env.example .env     # 然后编辑 .env 填入你的 API key
 
-python start.py            # 启动后浏览器打开 http://127.0.0.1:47821（可用 IC_PORT 环境变量改）
+python start.py            # 启动后手动访问 http://127.0.0.1:47821（可用 IC_PORT 环境变量改）
 ```
 
 `.env` 关键项：
@@ -90,9 +90,13 @@ OPENAI_BASE_URL=                # OpenAI 走第三方网关/中转站时填（�
 
 #### Wiki 浏览与溯源
 
-侧边栏的「面试官情报库」不仅展示最新日更，也提供统一条目目录：可以按关键词、题型、题库层次、公司/平台和最近 7/30 天筛选，并看到条目属于内置题库还是日更情报、来源、日期、频率和原文链接。页面顶部同时展示 raw 原文、compiled 产物、schema 和各类条目计数。
+侧边栏的「面试官情报库」不仅展示最新日更，也提供统一条目目录：关键词、题型、题库层次、公司/平台、题库/情报空间和最近 7/30 天筛选都由服务端执行，默认每页 50 条。页面会区分加载、可重试失败、合法空结果和正常列表，并展示 raw 原文、compiled 产物、schema 和各类条目计数。
 
-浏览目录使用只读接口 `GET /api/kb/items`，支持 `q`、`kind`、`layer`、`company`、`space`、`days`、`page`、`page_size` 参数。接口复用面试运行时的统一检索条目池，但不会把 `terms`、idf 或关联边等内部排序字段暴露给前端；面试时仍然只按相关性选取部分条目，不会整库注入。
+浏览目录使用只读接口 `GET /api/kb/items`，支持 `q`、`kind`、`layer`、`company`、`space`、`days`、`page`、`page_size` 参数。接口复用面试运行时的统一检索条目池，topic 和 platform 也参与浏览搜索，但不会把 `terms`、idf 或关联边等内部排序字段暴露给前端；面试时仍然只按相关性选取部分条目，不会整库注入。
+
+来源 URL 只在它是带主机名的 HTTP(S) 链接时公开。当前来源属于整批编译产物，页面明确标为“本批资料来源”，不会伪装成某一条题目的精确引用。QA、最新情报、复盘和历史中的 Markdown 都先经过固定版本 DOMPurify 的明确允许列表清洗，再进入页面。
+
+本地 API 只接受 loopback 同源请求；设置接口不会返回 API key 原文。已配置的 key 留空保存会保持不变，只有点击显式清除才会删除。Wiki 写流程会串行执行并用同目录临时文件原子替换 raw、compiled 和 `UPDATES.md`；即使编译或 schema 校验失败，已获取的 raw 原文仍会保留。
 
 编译渲染阶段会做保守的展示清洗（例如修复缺失的数字范围符号、移除空的可选字段），只影响 `UPDATES.md` 等派生视图，不回写 `kb/raw/`，也不改动 `kb/compiled/` 中的结构化事实。
 - **两层各自退**：读不到页面就少几道题、没有编译产物就情报退回按时间注入，另一层照常检索，不会整场起不来。
@@ -107,7 +111,7 @@ python evals/run.py        # 加 -v 看每条选中的条目
 
 | 策略 | 命中 | 平均注入 | 命中密度 |
 | --- | --- | --- | --- |
-| **统一检索（现在）** | **108/110（98.2%）** | **9704 字** | **0.56 项/千字** |
+| **统一检索（现在）** | **108/110（98.2%）** | **9732 字** | **0.55 项/千字** |
 | 题库整页 + 情报检索 | 104/110（94.5%） | 18039 字 | 0.29 项/千字 |
 | 只给最近的情报 | 39/110（35.5%） | 7149 字 | 0.27 项/千字 |
 | 情报按字数给 | 52/110（47.3%） | 18989 字 | 0.14 项/千字 |
@@ -121,7 +125,7 @@ python evals/run.py        # 加 -v 看每条选中的条目
 3. 面试官开场提问并**朗读**；点 🎤 **按下说话**回答，停止后自动发送（也可打字）
 4. 双向对话：随时可以反问澄清、或进入反问环节
 5. 点**结束面试并复盘** → 五维评分卡 + 扣分点原话回放 + 改进项（传了简历还会多出「简历兑现度」和「简历需要改的地方」两节）
-6. 记录与复盘自动存档到 `sessions/YYYY-MM-DD-HHMM-<轮次>.md`
+6. 记录与复盘自动存档到 `sessions/YYYY-MM-DD-HHMM-<轮次>.md`（浏览器开发版在项目目录；Electron 版在 `%APPDATA%\interview-coach\sessions`）
 
 ## 简历模式做了什么
 
@@ -133,7 +137,7 @@ python evals/run.py        # 加 -v 看每条选中的条目
 - **题库题目改写成贴合你简历的版本**再问，而不是泛泛考概念
 - 复盘时额外给出**简历兑现度**（写了但答不出细节的会被点名）和**简历改写建议**（给出改写后的句子）
 
-简历存在 `%APPDATA%/interview-coach/resume.txt`，上传一次长期复用，随时可在首页「换一份 / 移除」。
+简历会长期复用：浏览器开发版保存在项目目录的 `resume.txt`，Electron 版保存在 `%APPDATA%\interview-coach\resume.txt`；随时可在首页「换一份 / 移除」。
 
 ## 目录结构
 
@@ -150,7 +154,7 @@ interview-coach/
 │   └── UPDATES.md    由 compiled/ 渲染出来的视图，人看这份、检索不到编译产物时也读它
 ├── evals/            检索评测（cases.json 手写期望 / run.py 四策略对照）
 ├── assets/           应用图标（icon.ico / icon-1024.png）
-├── sessions/         每场面试的记录与复盘
+├── sessions/         浏览器开发版的面试记录与复盘（Electron 版位于 `%APPDATA%\interview-coach\sessions`）
 ├── .env.example      LLM 配置模板
 └── start.py          一键启动
 ```
@@ -165,7 +169,7 @@ interview-coach/
 
 已内置完整打包链，产物在 `dist-electron/`：
 
-- **InterviewCoach Setup x.y.z.exe** —— NSIS 安装包（最新版在 GitHub Releases 下载），双击安装，桌面快捷方式「Interview Coach」
+- **InterviewCoach Setup x.y.z.exe** —— NSIS 安装包；本地构建产物在 `dist-electron/`，只有上传到 GitHub Release 后才会出现在 Release 下载页。双击安装后会创建桌面快捷方式「Interview Coach」
 - 所有配置在应用内「设置」里填，保存即生效；`.env`、面试记录、知识库、后端日志可从「设置」弹窗底部或托盘右键菜单直达
 - 响应速度可通过 `.env` 调整：`IC_LLM_READ_TIMEOUT` 默认 45 秒（流式相邻数据块空闲上限），`QA_MAX_OUTPUT_TOKENS` 默认 3200；不会限制持续输出的完整回答
 - 关闭窗口 = 收进系统托盘（右键托盘图标「退出」才真正退出）；右上角 ☀/🌙 切换日间/夜间主题
@@ -174,7 +178,7 @@ interview-coach/
 ### exe 版语音说明
 
 Electron 里浏览器内置语音识别不可用（缺 Google 服务密钥），因此 exe 版：
-- **识别（你说话）**：MediaRecorder 录音 → OpenAI 转写 API（需在 .env 配 `OPENAI_API_KEY`，模型默认 `gpt-4o-mini-transcribe`，可用 `OPENAI_BASE_URL` 走兼容网关）
+- **识别（你说话）**：MediaRecorder 录音 → OpenAI 兼容转写 API（需在 `.env` 配 `STT_API_KEY`，或复用 `OPENAI_API_KEY`；模型默认 `gpt-4o-mini-transcribe`，可用 `STT_BASE_URL` / `OPENAI_BASE_URL` 走兼容网关）
 - **朗读（她说话）**：Windows 本地语音，正常可用
 - 浏览器版（`python start.py`）不受影响，识别仍走免费 Web Speech API
 

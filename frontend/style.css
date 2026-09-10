@@ -395,6 +395,11 @@ html.light .el-button--primary {
 .kb-browser-tools .el-select { width: 132px; }
 .kb-browser-tools .kb-search { width: min(360px, 100%); }
 .kb-item-list { display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+.kb-status {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 72px; color: var(--text-faint); font-size: .8125rem;
+}
+.kb-status-error { color: var(--bad); }
 .kb-item { padding: 10px 2px 11px; border-top: 1px solid var(--line-soft); }
 .kb-item:first-child { border-top: 0; }
 .kb-item-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -402,8 +407,10 @@ html.light .el-button--primary {
 .kb-hot { color: var(--warn); font-size: .6875rem; }
 .kb-item-line { margin-top: 6px; color: var(--text); font-size: .8125rem; line-height: 1.55; }
 .kb-item-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; color: var(--text-faint); font-size: .6875rem; line-height: 1.45; }
-.kb-item-meta a { color: var(--signal-hi); text-decoration: none; }
-.kb-item-meta a:hover { text-decoration: underline; }
+.kb-item-sources { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; color: var(--text-faint); font-size: .6875rem; }
+.kb-item-sources a { color: var(--signal-hi); text-decoration: none; overflow-wrap: anywhere; }
+.kb-item-sources a:hover { text-decoration: underline; }
+.kb-pagination { align-self: center; max-width: 100%; margin-top: 10px; overflow-x: auto; padding-bottom: 2px; }
 
 .kb-file {
   display: flex; align-items: center; gap: 10px;
@@ -479,6 +486,9 @@ html.light .el-button--primary {
 
 /* 配置字段 */
 .field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.secret-field { display: flex; align-items: center; gap: 8px; width: 100%; }
+.secret-field .el-input { flex: 1; min-width: 0; }
+.secret-field .el-button { flex: none; }
 .field + .field, .field-pair { margin-top: 12px; }
 /* 成对的两个字段是并排的，别让上面那条相邻规则把右边那个往下推 12px */
 .field-pair > .field { margin-top: 0; }
@@ -827,7 +837,9 @@ html.light .dossier { color: #33474F; }
 .dossier table {
   border-collapse: collapse; width: 100%; margin: 12px 0; font-size: .875rem;
   font-variant-numeric: tabular-nums;
+  display: block; overflow-x: auto;
 }
+.dossier a { overflow-wrap: anywhere; }
 .dossier th, .dossier td { border: 1px solid var(--line-soft); padding: 8px 11px; text-align: left; }
 .dossier th {
   background: var(--ink-800); color: var(--text-dim); font-weight: 600;
@@ -957,6 +969,11 @@ html.light ::-webkit-scrollbar-thumb:hover { background: #9BAFB6; background-cli
   .stat-strip { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 560px) {
-  .stat-strip { grid-template-columns: 1fr; }
+  .stat-strip { grid-template-columns: minmax(0, 1fr); }
+  .stat-tile { min-width: 0; }
   .kb-browser-tools .el-select, .kb-browser-tools .kb-search { width: 100%; }
+  .kb-item-age { margin-left: 0; width: 100%; }
+  .secret-field { align-items: stretch; flex-direction: column; }
+  .secret-field .el-button { align-self: flex-start; }
+  .dossier { padding: 20px 16px; }
 }

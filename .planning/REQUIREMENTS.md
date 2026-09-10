@@ -41,6 +41,29 @@
 - 重新设计整个页面和导航系统。
 - 把复盘报告改造成流式短答。
 
+## Wiki Security and Scale Requirements
+
+### Trust boundaries
+
+- **WIKI-01**: QA、最新情报、复盘和历史中的 Markdown 必须经过同一个明确允许列表的 sanitizer，危险标签、事件属性和 URL 不得进入 DOM。
+- **WIKI-02**: 公开来源只能是具有主机名的 HTTP(S) URL，并明确标示为 artifact 级“本批资料来源”，不得伪造成逐条引用。
+- **WIKI-03**: 本地 FastAPI 只接受 loopback Host，拒绝 cross-site Fetch Metadata；存在 Origin 时必须同源，敏感读取和状态修改必须带应用 marker。
+- **WIKI-04**: 设置 API 不得返回 API key 原文；空 secret 输入保留旧值，只有 `clear_secrets` 显式声明才清除。
+- **WIKI-05**: 导入、联网研究和检索得到的 Wiki 内容只作为不可信证据，不得覆盖角色、泄露提示词或伪造来源。
+
+### Catalog and metadata
+
+- **WIKI-06**: 目录筛选和分页必须由服务端权威执行，支持超过 500 条数据；前端默认每页 50 条。
+- **WIKI-07**: 目录必须区分 loading、可重试 error、合法 empty 和 ready，并阻止旧请求覆盖新查询结果。
+- **WIKI-08**: 目录搜索、筛选和 facet 必须覆盖 space、topic、company 和 platform，并保留稳定可访问的控件及来源链接名称。
+- **WIKI-09**: 375px 移动视口不得产生页面级横向溢出；Markdown 表格、代码、长链接和分页可在局部容器滚动或换行。
+
+### Persistence and cache
+
+- **WIKI-10**: Wiki 写工作流必须用实例级 `RLock` 串行化，raw、compiled、`UPDATES.md` 和 `.env` 必须同目录临时写入后原子替换。
+- **WIKI-11**: raw 获取成功后必须保留；编译或 schema 校验失败不得产生半成品，也不得破坏既有目标文件。
+- **WIKI-12**: 选材缓存必须包含 compiled/Wiki 内容指纹；内容变化时即使 newest/total 不变也必须失效，同时保持现有检索评分不变。
+
 ## Traceability
 
 | Requirement | Phase | Status |
@@ -48,6 +71,9 @@
 | RESP-01–RESP-06 | Phase 1 | Pending |
 | RESP-07–RESP-09 | Phase 2 | Pending |
 | RESP-10–RESP-12 | Phase 1–2 | Pending |
+| WIKI-01–WIKI-05 | Phase 3 | Complete |
+| WIKI-06–WIKI-09 | Phase 3 | Complete |
+| WIKI-10–WIKI-12 | Phase 3 | Complete |
 
 ---
 *Requirements defined: 2026-09-03*

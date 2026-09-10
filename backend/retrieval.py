@@ -15,6 +15,7 @@ from datetime import date
 from pathlib import Path
 
 from . import kb, wiki
+from .security import safe_http_url
 
 # 每场从情报层注入多少条。一面重八股与手撕、二面重系统设计与判断力——配额照着
 # 〈本场流程〉的阶段配比走，挑出来的东西才跟这一轮真正要考的东西对得上。
@@ -165,6 +166,10 @@ def _age_days(day: str, ref: str) -> float:
     return max(0.0, float((b - a).days))
 
 
+def _safe_http_url(value: object) -> str:
+    return safe_http_url(value)
+
+
 def _diff_bucket(s) -> str:
     """难度归三档。语料里写法不统一（"中等偏难"/"简单-中等"），归档时往稳的一边靠。"""
     t = str(s or "")
@@ -182,6 +187,7 @@ def _items_of(artifact: dict) -> list[dict]:
     slug = str(meta.get("slug") or "")
     day = _day_of(meta)
     topics = [kb._flat(t) for t in (artifact.get("topic") or []) if kb._flat(t)]
+    topic = " / ".join(topics)
     tt = terms(" ".join(topics))
     out = []
     for kind, _label, fmt in kb.CATEGORIES:
@@ -200,6 +206,8 @@ def _items_of(artifact: dict) -> list[dict]:
                 "day": day,
                 "line": fmt(x),
                 "company": kb._flat(x.get("company")),
+                "platform": kb._flat(x.get("platform")),
+                "topic": topic,
                 "freq": kb._flat(x.get("frequency")),
                 "diff": _diff_bucket(x.get("difficulty")),
                 "terms": terms(text),
@@ -240,6 +248,8 @@ def _bank_items(pages: list[dict]) -> list[dict]:
                 "line": text,
                 "company": "/".join(
                     firm for firm, al in STYLE_ALIASES.items() if any(a in text for a in al)),
+                "platform": "",
+                "topic": crumb,
                 "freq": "高频" if e["hot"] else "",
                 "hot": e["hot"],        # 页面的 🔥 标记，渲染时留着：那是"必问"的信号
                 "diff": "中等",          # 见 docstring：不猜难度，取中间档不被身份过滤挡掉
@@ -313,7 +323,8 @@ def load(compiled_dir, kb_dir=None) -> dict:
     except OSError:
         stamp = ()
     wstamp = wiki.stamp(kdir)
-    if _store_cache.get("key") == (str(d), stamp, str(kdir), wstamp):
+    version = (stamp, wstamp)
+    if _store_cache.get("key") == (str(d), version, str(kdir)):
         return _store_cache["store"]
     arts = []
     for name, _mtime, _size in stamp:
@@ -337,6 +348,7 @@ def load(compiled_dir, kb_dir=None) -> dict:
     _build_links(items, df)
     store = {
         "items": items, "days": days, "pages": pages, "total": len(items), "df": df,
+        "version": version,
         "intel_total": sum(1 for it in items if it["space"] == "intel"),
         "bank_total": sum(1 for it in items if it["space"] == "bank"),
         "by_id": {it["id"]: it for it in items},
@@ -347,7 +359,7 @@ def load(compiled_dir, kb_dir=None) -> dict:
         # 评测也才能离线复现。
         "newest": days[0]["day"] if days else "",
     }
-    _store_cache.update(key=(str(d), stamp, str(kdir), wstamp), store=store)
+    _store_cache.update(key=(str(d), version, str(kdir)), store=store)
     return store
 
 
@@ -370,7 +382,7 @@ def _lex(item: dict, q_terms: set, idf: dict) -> float:
 
 
 _CATALOG_FIELDS = (
-    "id", "space", "kind", "layer", "day", "line", "company", "freq",
+    "id", "space", "kind", "layer", "day", "line", "company", "platform", "topic", "freq",
     "hot", "source", "source_urls", "page", "section", "sub",
 )
 
@@ -383,10 +395,11 @@ def public_item(item: dict) -> dict:
     """
     out = {key: item.get(key, "") for key in _CATALOG_FIELDS}
     out["source_urls"] = [
-        {"url": str(src.get("url") or ""), "title": str(src.get("title") or "")}
+        {"url": url, "title": str(src.get("title") or "")}
         for src in (item.get("source_urls") or [])
-        if isinstance(src, dict) and src.get("url")
+        if isinstance(src, dict) and (url := _safe_http_url(src.get("url")))
     ]
+    out["source_scope"] = "artifact" if out["source_urls"] else ""
     out["frequency"] = out.pop("freq")
     out["title"] = str(item.get("line") or "").strip()
     return out
@@ -414,11 +427,12 @@ def catalog(store: dict, *, query: str = "", kind: str = "", layer: str = "",
             return False
         if space and item.get("space") != space:
             return False
-        if company and company not in str(item.get("company") or "").casefold():
+        if company and company not in " ".join((
+                str(item.get("company") or ""), str(item.get("platform") or ""))).casefold():
             return False
         if query:
             haystack = " ".join(str(item.get(key) or "") for key in (
-                "line", "source", "company", "page", "section", "sub", "day"))
+                "line", "source", "company", "platform", "topic", "page", "section", "sub", "day"))
             if query not in haystack.casefold():
                 return False
         if days:
@@ -468,7 +482,10 @@ def catalog(store: dict, *, query: str = "", kind: str = "", layer: str = "",
         "facets": {
             "kinds": sorted({str(item.get("kind") or "") for item in all_items if item.get("kind")}),
             "layers": sorted({str(item.get("layer") or "") for item in all_items if item.get("layer")}),
-            "companies": sorted({str(item.get("company") or "") for item in all_items if item.get("company")}),
+            "spaces": sorted({str(item.get("space") or "") for item in all_items if item.get("space")}),
+            "companies": sorted({str(value) for item in all_items
+                                 for value in (item.get("company"), item.get("platform")) if value}),
+            "platforms": sorted({str(item.get("platform") or "") for item in all_items if item.get("platform")}),
         },
     }
 
