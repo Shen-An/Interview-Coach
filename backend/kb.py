@@ -298,6 +298,27 @@ def render_section(artifact: dict) -> str:
     return f"## {title}\n\n{render_body(artifact)}"
 
 
+_DATE_IN_NAME = re.compile(
+    r"(?<!\d)(20\d{2})(?:[-_.年])(\d{1,2})(?:[-_.月])(\d{1,2})(?:日)?(?!\d)"
+)
+
+
+def _date_from_name(name: str) -> str:
+    for match in _DATE_IN_NAME.finditer(str(name or "")):
+        try:
+            return datetime(*map(int, match.groups())).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return ""
+
+
+def _source_day(meta: dict) -> str:
+    for key in ("raw_file", "source", "section_title"):
+        if day := _date_from_name(meta.get(key, "")):
+            return day
+    return str(meta.get("compiled_at") or "")[:10]
+
+
 def _slug(name: str, prefix: str) -> str:
     """文件名 → 稳定的 slug。同一个来源重复导入落到同一个 slug，天然覆盖旧的，
     不用再靠"标题里含 来自 xxx"这种字符串匹配去删旧节。"""
@@ -414,7 +435,7 @@ class KBManager:
         return p
 
     def all_compiled(self) -> list[dict]:
-        """全部编译产物，按编译时间倒序（新的在前）。坏文件跳过——
+        """全部编译产物，按原文件名代表的日期倒序（新的在前）。坏文件跳过——
         一份手改坏的 JSON 不该让整个提示词组装失败。"""
         arts = []
         for f in self.compiled_dir.glob("*.json"):
@@ -424,7 +445,14 @@ class KBManager:
                 continue
             if isinstance(doc, dict) and isinstance(doc.get("meta"), dict):
                 arts.append(doc)
-        arts.sort(key=lambda a: str(a["meta"].get("compiled_at") or ""), reverse=True)
+        arts.sort(
+            key=lambda a: (
+                _source_day(a["meta"]),
+                str(a["meta"].get("compiled_at") or ""),
+                str(a["meta"].get("slug") or ""),
+            ),
+            reverse=True,
+        )
         return arts
 
     def _legacy_sections(self, owned: set[str]) -> list[str]:
@@ -527,6 +555,7 @@ class KBManager:
         self._atomic_write_text(self.raw_dir / raw_name, text)
 
         now = datetime.now()
+        source_day = _date_from_name(filename) or now.strftime("%Y-%m-%d")
         meta = {
             "kind": "import",
             "source": filename or "daily.md",
@@ -534,7 +563,8 @@ class KBManager:
             "raw_file": raw_name,
             "raw_chars": len(text),
             "compiled_at": now.isoformat(timespec="seconds"),
-            "section_title": f"{now.strftime('%Y-%m-%d %H:%M')} · 来自 {filename}",
+            "source_day": source_day,
+            "section_title": f"{source_day} · 来自 {filename}",
             "model": self._model_tag(llm),
         }
         artifact = self._compile(llm, text, meta)
@@ -582,6 +612,7 @@ class KBManager:
             "raw_file": raw_name,
             "raw_chars": len(notes),
             "compiled_at": datetime.now().isoformat(timespec="seconds"),
+            "source_day": today,
             "section_title": f"{today} · 每日自动更新",
             "model": self._model_tag(llm),
             "sources": [
@@ -620,6 +651,8 @@ class KBManager:
         pm = pm if isinstance(pm, dict) else {}
         mtime = datetime.fromtimestamp(raw_path.stat().st_mtime)
         source = pm.get("source") or ("每日自动更新" if kind == "research" else f"{tag}.md")
+        source_day = pm.get("source_day") or _date_from_name(source) or _date_from_name(raw_path.name)
+        source_day = source_day or str(pm.get("compiled_at") or mtime.isoformat())[:10]
         meta = {
             "kind": kind,
             "source": source,
@@ -628,9 +661,10 @@ class KBManager:
             "raw_chars": len(text),
             "compiled_at": pm.get("compiled_at") or mtime.isoformat(timespec="seconds"),
             "recompiled_at": datetime.now().isoformat(timespec="seconds"),
+            "source_day": source_day,
             "section_title": pm.get("section_title") or (
-                f"{tag} · 每日自动更新" if kind == "research"
-                else f"{mtime.strftime('%Y-%m-%d %H:%M')} · 来自 {source}"
+                f"{source_day} · 每日自动更新" if kind == "research"
+                else f"{source_day} · 来自 {source}"
             ),
             "model": self._model_tag(llm),
         }

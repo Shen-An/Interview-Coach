@@ -75,6 +75,40 @@ class WikiPersistenceTests(unittest.TestCase):
             self.assertEqual(errors, [])
             self.assertEqual(llm.max_active, 1)
 
+    def test_import_uses_filename_date_for_wiki_day(self):
+        with TemporaryDirectory() as tmp:
+            manager = self._manager(tmp)
+            result = manager.import_daily(
+                _FakeLlm(), "Agent-实习准备与学习路线-2026-08-25.md", "raw evidence"
+            )
+            artifact = json.loads(
+                (manager.compiled_dir / result["compiled_file"]).read_text(encoding="utf-8")
+            )
+            store = retrieval.load(manager.compiled_dir, manager.data_kb)
+
+            self.assertEqual(artifact["meta"]["source_day"], "2026-08-25")
+            self.assertEqual(
+                artifact["meta"]["section_title"],
+                "2026-08-25 · 来自 Agent-实习准备与学习路线-2026-08-25.md",
+            )
+            imported_item = next(
+                item for item in store["items"] if item["id"].startswith(result["slug"] + "#")
+            )
+            self.assertEqual(imported_item["day"], "2026-08-25")
+
+    def test_import_without_filename_date_uses_import_day(self):
+        with TemporaryDirectory() as tmp:
+            manager = self._manager(tmp)
+            with patch("backend.kb.datetime") as fake_datetime:
+                fake_datetime.now.return_value = __import__("datetime").datetime(2026, 9, 11, 9, 30)
+                result = manager.import_daily(_FakeLlm(), "daily-notes.md", "raw evidence")
+            artifact = json.loads(
+                (manager.compiled_dir / result["compiled_file"]).read_text(encoding="utf-8")
+            )
+
+            self.assertEqual(artifact["meta"]["source_day"], "2026-09-11")
+            self.assertEqual(artifact["meta"]["section_title"], "2026-09-11 · 来自 daily-notes.md")
+
     def test_import_flows_from_raw_to_compiled_catalog(self):
         with TemporaryDirectory() as tmp:
             manager = self._manager(tmp)

@@ -149,8 +149,10 @@ def query_terms(*texts: str) -> set[str]:
 
 
 def _day_of(meta: dict) -> str:
-    """条目的情报日期：优先取原文文件名/小节标题里的日期（那才是内容当天），
-    都没有再退回编译时间。"""
+    """条目的情报日期：优先使用导入时从文件名确定的日期，
+    历史产物再从原文文件名/来源/小节标题推断，最后退回编译时间。"""
+    if day := str(meta.get("source_day") or ""):
+        return day
     for v in (meta.get("raw_file"), meta.get("source"), meta.get("section_title")):
         m = _DATE.search(str(v or ""))
         if m:

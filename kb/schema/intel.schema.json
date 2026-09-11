@@ -43,6 +43,11 @@
           "minLength": 16,
           "maxLength": 32
         },
+        "source_day": {
+          "type": "string",
+          "description": "情报所属日期；导入文件优先取文件名日期，否则取导入日期",
+          "pattern": "^20\\d{2}-\\d{2}-\\d{2}$"
+        },
         "section_title": { "type": "string", "maxLength": 200 },
         "model": { "type": "string", "maxLength": 120 },
         "no_news": { "type": "boolean" },
